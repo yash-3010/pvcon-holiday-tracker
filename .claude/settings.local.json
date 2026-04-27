@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/pvcon/**)",
+      "Bash(unzip -o \"pvcon-logos.zip\" -d pvcon-logos-extracted)",
+      "Bash(python -c ' *)",
+      "Bash(npm -v)",
+      "Bash(npx --yes create-next-app@latest . --ts --tailwind --eslint --app --src-dir --turbopack --import-alias \"@/*\" --use-npm --yes)"
+    ]
+  }
+}
