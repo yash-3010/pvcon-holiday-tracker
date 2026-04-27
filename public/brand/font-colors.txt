@@ -1,0 +1,8 @@
+Colors
+
+Primary - #202f63
+Secondary - #92b353
+
+Font:
+Logo Font - Nourd, Garet
+Website - Plus_Jakarta_Sans

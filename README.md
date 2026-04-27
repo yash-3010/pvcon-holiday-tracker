@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PVCON Holiday Tracker
 
-## Getting Started
+Minimal holiday & leave tracker for PVCON Consulting. Replaces the Excel sheet.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router) + TypeScript + Tailwind v4
+- SQLite via Drizzle ORM + better-sqlite3
+- Auth.js v5 (Credentials, JWT) — domain-restricted to `@pvcon.in`
+- bcryptjs password hashes
+- Plus Jakarta Sans, brand colors `#202f63` / `#92b353`
+- Deploys to AWS Lightsail (~$5/mo). See `DEPLOY.md`.
+
+## Local dev
 
 ```bash
+npm install
+npm run db:migrate
+npm run db:seed              # seeds users, 2026 holidays, existing leaves from xlsx
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Default accounts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+All start with password `Pvcon@1234`, forced change on first login.
 
-## Learn More
+- `admin@pvcon.in` (admin)
+- `yash@pvcon.in`, `sonam@pvcon.in`, `raj@pvcon.in`, `almas@pvcon.in`
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `npm run dev` — dev server
+- `npm run build` / `npm run start` — production
+- `npm run db:generate` — drizzle-kit generate (after schema changes)
+- `npm run db:migrate` — apply migrations
+- `npm run db:seed` — seed from xlsx (`SEED_XLSX` env override)
+- `npm run db:reset` — wipe + reseed (DEV ONLY)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Features
 
-## Deploy on Vercel
+**Employee**
+- Dashboard: CL/SL balance, optional holidays picked, unpaid taken, upcoming leaves
+- Leaves: add/edit/cancel, half-day support, auto working-days calc (skips weekends + holidays)
+- Holidays: pick up to 6 optional holidays
+- Profile: change password
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Admin** (`admin@pvcon.in`)
+- Team summary
+- Users: add (generates `Pvcon@<rand4>` temp password), reset, deactivate, delete
+- Holiday calendar editor
+- Leave policy editor
+- Drill-down per user
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Schema
+
+`src/db/schema.ts` — users, holidays, holiday_selections, leaves, leave_policy, user_year_balance.
+
+## Deploy
+
+See [DEPLOY.md](./DEPLOY.md).

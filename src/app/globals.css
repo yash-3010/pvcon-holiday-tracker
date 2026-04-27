@@ -1,26 +1,104 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #f7f8fb;
+  --surface: #ffffff;
+  --foreground: #1a1f36;
+  --foreground-soft: #4b5169;
+  --primary: #202f63;
+  --primary-foreground: #ffffff;
+  --primary-soft: #eef1f9;
+  --secondary: #92b353;
+  --secondary-foreground: #ffffff;
+  --secondary-soft: #f1f6e6;
+  --muted: #f1f3f8;
+  --muted-foreground: #6b7280;
+  --border: #e6e8ef;
+  --border-strong: #d6dae5;
+  --card: #ffffff;
+  --destructive: #d92d20;
+  --ring: #202f63;
+  --shadow-sm: 0 1px 2px rgba(20, 28, 64, 0.04);
+  --shadow-md: 0 4px 14px rgba(20, 28, 64, 0.06);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-foreground-soft: var(--foreground-soft);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-soft: var(--secondary-soft);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  background: var(--background);
+  color: var(--foreground);
 }
 
 body {
-  background: var(--background);
+  font-family: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  border-color: var(--border);
+}
+
+input, select, textarea {
+  font-family: inherit;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+button {
+  font-family: inherit;
+}
+
+.btn-primary {
+  background-color: #202f63;
+  color: #ffffff;
+}
+.btn-primary:hover { background-color: #1a2756; }
+
+.btn-secondary {
+  background-color: #92b353;
+  color: #ffffff;
+}
+.btn-secondary:hover { background-color: #82a047; }
+
+.btn-outline {
+  background-color: #ffffff;
+  color: var(--foreground);
+  border: 1px solid var(--border-strong);
+}
+.btn-outline:hover { background-color: var(--muted); }
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--foreground-soft);
+}
+.btn-ghost:hover { background-color: var(--muted); color: var(--foreground); }
+
+.btn-destructive {
+  background-color: #d92d20;
+  color: #ffffff;
+}
+.btn-destructive:hover { background-color: #b3251a; }
+
+::selection {
+  background: var(--primary);
+  color: #fff;
 }
