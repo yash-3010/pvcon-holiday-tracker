@@ -5,7 +5,7 @@ import { passwordProblems } from "@/lib/auth/password-policy";
 import { permissionsForRoles } from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/types";
 import type { DB } from "@/server/db/client";
-import { users } from "@/server/db/schema";
+import { users, type UserRow } from "@/server/db/schema";
 import {
   changePassword, createPasswordResetToken, createUser, generateTempPassword, getUserById, listUsers,
   loadSessionUser, resetPasswordWithToken, setTemporaryPassword, setUserRoles, setUserStatus, verifyCredentials,
@@ -66,6 +66,24 @@ describe("verifyCredentials", () => {
     const u = insertUser(db, { email: "c@pvcon.in" });
     await verifyCredentials(db, "c@pvcon.in", TEST_PASSWORD, { ...LOGIN, cost: 5, now: new Date() });
     expect(bcrypt.getRounds(getUserById(db, u.id)!.passwordHash)).toBe(5);
+  });
+
+  it("handles concurrent wrong attempts and eventually locks", async () => {
+    insertUser(db, { email: "concurrent@pvcon.in" });
+    const now = new Date("2026-09-24T10:00:00Z");
+    const results = await Promise.all([
+      verifyCredentials(db, "concurrent@pvcon.in", "wrong", { ...LOGIN, now }),
+      verifyCredentials(db, "concurrent@pvcon.in", "wrong", { ...LOGIN, now }),
+      verifyCredentials(db, "concurrent@pvcon.in", "wrong", { ...LOGIN, now }),
+    ]);
+
+    // At least one should be locked
+    const hasLocked = results.some((r) => r.ok === false && r.reason === "locked");
+    expect(hasLocked).toBe(true);
+
+    // Correct password should still be rejected while locked
+    const whileLocked = await verifyCredentials(db, "concurrent@pvcon.in", TEST_PASSWORD, { ...LOGIN, now });
+    expect(whileLocked).toMatchObject({ ok: false, reason: "locked" });
   });
 });
 
@@ -150,6 +168,32 @@ describe("password reset tokens", () => {
     expect(createPasswordResetToken(db, "x@pvcon.in")).toBeNull();
     expect(createPasswordResetToken(db, "nobody@pvcon.in")).toBeNull();
   });
+
+  it("prevents concurrent reuse of the same reset token", async () => {
+    const u = insertUser(db, { email: "concurrent@pvcon.in" });
+    const created = createPasswordResetToken(db, "concurrent@pvcon.in", new Date("2026-09-24T10:00:00Z"))!;
+    const now = new Date("2026-09-24T10:10:00Z");
+    const results = await Promise.allSettled([
+      resetPasswordWithToken(db, created.token, "Brand-New-Pass1", POLICY, now, TEST_COST),
+      resetPasswordWithToken(db, created.token, "Other-New-Pass12", POLICY, now, TEST_COST),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled") as PromiseFulfilledResult<UserRow>[];
+    const rejected = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason.code).toBe("INVALID_TOKEN");
+
+    // Verify the password that succeeded
+    const fulfilledUser = fulfilled[0].value;
+    const pass1Match = fulfilledUser.passwordHash.includes("Brand-New-Pass1") || bcrypt.compareSync("Brand-New-Pass1", fulfilledUser.passwordHash);
+    const pass2Match = fulfilledUser.passwordHash.includes("Other-New-Pass12") || bcrypt.compareSync("Other-New-Pass12", fulfilledUser.passwordHash);
+    expect(pass1Match || pass2Match).toBe(true);
+
+    // Session version bumped exactly once
+    expect(fulfilledUser.sessionVersion).toBe(u.sessionVersion + 1);
+  });
 });
 
 describe("user management", () => {
@@ -203,5 +247,47 @@ describe("user management", () => {
     const row = listUsers(db).find((u) => u.email === "l@pvcon.in")!;
     expect(row.roles).toEqual(["employee", "manager"]);
     expect("passwordHash" in row).toBe(false);
+  });
+
+  it("revokes sessions when changing a target's roles", () => {
+    const admin = sessionUserFor(db, insertUser(db, { roles: ["super_admin"] }));
+    const target = insertUser(db, { email: "target@pvcon.in", roles: ["employee"] });
+    const beforeVersion = target.sessionVersion;
+
+    // Change target's roles
+    setUserRoles(db, admin, target.id, ["employee", "manager"]);
+
+    // Session with old version should be invalid
+    expect(loadSessionUser(db, target.id, beforeVersion)).toBeNull();
+
+    // Session with new version should load with new roles
+    const updated = getUserById(db, target.id)!;
+    const session = loadSessionUser(db, target.id, updated.sessionVersion)!;
+    expect(session.roles).toEqual(["employee", "manager"]);
+    expect(updated.sessionVersion).toBe(beforeVersion + 1);
+  });
+
+  it("does not bump session version when setting same roles", () => {
+    const admin = sessionUserFor(db, insertUser(db, { roles: ["super_admin"] }));
+    const target = insertUser(db, { email: "target2@pvcon.in", roles: ["employee", "manager"] });
+    const beforeVersion = target.sessionVersion;
+
+    // Set to same roles
+    setUserRoles(db, admin, target.id, ["employee", "manager"]);
+
+    const updated = getUserById(db, target.id)!;
+    expect(updated.sessionVersion).toBe(beforeVersion);
+  });
+
+  it("does not bump self session version when adding a role to themselves", () => {
+    const admin = insertUser(db, { email: "self-admin@pvcon.in", roles: ["super_admin"] });
+    const sessionAdmin = sessionUserFor(db, admin);
+    const beforeVersion = admin.sessionVersion;
+
+    // Admin adds manager role to themselves
+    setUserRoles(db, sessionAdmin, admin.id, ["super_admin", "manager"]);
+
+    const updated = getUserById(db, admin.id)!;
+    expect(updated.sessionVersion).toBe(beforeVersion);
   });
 });

@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { randomInt } from "node:crypto";
 import { passwordProblems, type PasswordPolicy } from "@/lib/auth/password-policy";
 import { can, isPrivilegedRole, permissionsForRoles, type Role } from "@/lib/auth/permissions";
@@ -85,15 +85,24 @@ export async function verifyCredentials(
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
-    const failed = user.failedLoginCount + 1;
-    const lock = failed >= opts.lockoutAttempts;
-    db.update(users)
-      .set({
-        failedLoginCount: lock ? 0 : failed,
-        lockedUntil: lock ? new Date(opts.now.getTime() + opts.lockoutMinutes * 60_000).toISOString() : user.lockedUntil,
-      })
+    // Atomically increment the failed count
+    const updated = db
+      .update(users)
+      .set({ failedLoginCount: sql`${users.failedLoginCount} + 1` })
       .where(eq(users.id, user.id))
-      .run();
+      .returning({ failedLoginCount: users.failedLoginCount })
+      .get()!;
+    const failed = updated.failedLoginCount;
+    const lock = failed >= opts.lockoutAttempts;
+    if (lock) {
+      db.update(users)
+        .set({
+          failedLoginCount: 0,
+          lockedUntil: new Date(opts.now.getTime() + opts.lockoutMinutes * 60_000).toISOString(),
+        })
+        .where(eq(users.id, user.id))
+        .run();
+    }
     return { ok: false, reason: lock ? "locked" : "invalid", userId: user.id };
   }
 
@@ -169,6 +178,16 @@ export function setUserRoles(
   }
   db.delete(userRoles).where(eq(userRoles.userId, userId)).run();
   if (after.length) db.insert(userRoles).values(after.map((role) => ({ userId, role }))).run();
+
+  // Bump sessionVersion if roles actually changed and target is not the actor
+  const rolesChanged = added.length > 0 || removed.length > 0;
+  if (rolesChanged && userId !== actor.id) {
+    db.update(users)
+      .set({ sessionVersion: target.sessionVersion + 1 })
+      .where(eq(users.id, userId))
+      .run();
+  }
+
   return { before, after };
 }
 
@@ -315,10 +334,20 @@ export async function resetPasswordWithToken(
   assertStrongPassword(newPassword, policy);
   const passwordHash = await bcrypt.hash(newPassword, cost);
   return db.transaction((tx) => {
+    // Atomically mark THIS token as used; if it was already used, reject
+    const marked = tx
+      .update(passwordResetTokens)
+      .set({ usedAt: nowIso })
+      .where(and(eq(passwordResetTokens.id, row.id), isNull(passwordResetTokens.usedAt)))
+      .run();
+    if (marked.changes === 0) throw invalid;
+
+    // Mark other unused tokens for this user as used
     tx.update(passwordResetTokens)
       .set({ usedAt: nowIso })
       .where(and(eq(passwordResetTokens.userId, user.id), isNull(passwordResetTokens.usedAt)))
       .run();
+
     return tx
       .update(users)
       .set({
