@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import type { RunResult } from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
 import { dirname } from "node:path";
 import * as schema from "./schema";
 
@@ -28,4 +28,15 @@ export function isLegacyDatabase(sqlite: Database.Database): boolean {
     .prepare("select name from sqlite_master where type = 'table' and name = 'leave_policy'")
     .get();
   return row !== undefined;
+}
+
+/** Read-only probe: true when `file` exists and is a legacy holiday-tracker database. Never writes to it. */
+export function isLegacyDatabaseFile(file: string): boolean {
+  if (file === ":memory:" || !existsSync(file)) return false;
+  const probe = new Database(file, { readonly: true, fileMustExist: true });
+  try {
+    return isLegacyDatabase(probe);
+  } finally {
+    probe.close();
+  }
 }
