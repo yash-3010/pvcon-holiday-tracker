@@ -1,62 +1,26 @@
-# PVCON Holiday Tracker
+# PVCON People
 
-Minimal holiday & leave tracker for PVCON Consulting. Replaces the Excel sheet.
+Internal HR platform for PVCON Consulting: core HR, attendance, timesheets, leave and comp-off, payroll and payslips.
 
-## Stack
+- Design spec: `docs/superpowers/specs/2026-09-24-hrms-overhaul-design.md`
+- Roadmap and progress: `docs/superpowers/plans/2026-09-24-hrms-roadmap.md`
+- Contributor and agent guide: `CLAUDE.md`
 
-- Next.js 16 (App Router) + TypeScript + Tailwind v4
-- SQLite via Drizzle ORM + better-sqlite3
-- Auth.js v5 (Credentials, JWT) — domain-restricted to `@pvcon.in`
-- bcryptjs password hashes
-- Plus Jakarta Sans, brand colors `#202f63` / `#92b353`
-- Deploys to AWS Lightsail (~$5/mo). See `DEPLOY.md`.
-
-## Local dev
+## Local development (WSL / Linux / macOS)
 
 ```bash
-npm install
+npm ci
+cp .env.example .env.local   # set AUTH_SECRET, DATA_ENCRYPTION_KEY (openssl rand -base64 32), CRON_SECRET
 npm run db:migrate
-npm run db:seed              # seeds users, 2026 holidays, existing leaves from xlsx
+npm run db:seed              # admin@pvcon.in / ChangeMe@2026 (forced change at first sign-in)
 npm run dev
 ```
 
-Open <http://localhost:3000>.
+## Quality gates
 
-### Default accounts
+```bash
+npm run verify     # typecheck + lint + unit/integration tests + build
+npm run test:e2e   # Playwright (stop the dev server first)
+```
 
-All start with password `Pvcon@1234`, forced change on first login.
-
-- `admin@pvcon.in` (admin)
-- `yash@pvcon.in`, `sonam@pvcon.in`, `raj@pvcon.in`, `almas@pvcon.in`
-
-## Scripts
-
-- `npm run dev` — dev server
-- `npm run build` / `npm run start` — production
-- `npm run db:generate` — drizzle-kit generate (after schema changes)
-- `npm run db:migrate` — apply migrations
-- `npm run db:seed` — seed from xlsx (`SEED_XLSX` env override)
-- `npm run db:reset` — wipe + reseed (DEV ONLY)
-
-## Features
-
-**Employee**
-- Dashboard: CL/SL balance, optional holidays picked, unpaid taken, upcoming leaves
-- Leaves: add/edit/cancel, half-day support, auto working-days calc (skips weekends + holidays)
-- Holidays: pick up to 6 optional holidays
-- Profile: change password
-
-**Admin** (`admin@pvcon.in`)
-- Team summary
-- Users: add (generates `Pvcon@<rand4>` temp password), reset, deactivate, delete
-- Holiday calendar editor
-- Leave policy editor
-- Drill-down per user
-
-## Schema
-
-`src/db/schema.ts` — users, holidays, holiday_selections, leaves, leave_policy, user_year_balance.
-
-## Deploy
-
-See [DEPLOY.md](./DEPLOY.md).
+Deployment: see `DEPLOY.md` (rewritten in Phase 6).
