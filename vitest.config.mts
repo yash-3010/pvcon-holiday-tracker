@@ -13,5 +13,7 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     setupFiles: ["tests/setup.ts"],
     restoreMocks: true,
+    // next-auth imports "next/server" without an extension; let Vite resolve it instead of Node ESM.
+    server: { deps: { inline: ["next-auth"] } },
   },
 });
