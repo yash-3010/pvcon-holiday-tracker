@@ -26,7 +26,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 | Phase | Detailed plan | Status |
 |---|---|---|
 | 0A Foundation — backend | `2026-09-24-phase-0a-foundation-backend.md` | ☑ done (912fd4d) |
-| 0B Foundation — UI, auth pages, e2e | `2026-09-24-phase-0b-foundation-ui.md` | ☐ not started |
+| 0B Foundation — UI, auth pages, e2e | `2026-09-24-phase-0b-foundation-ui.md` | ☑ done (deb1b70) |
 | 1 Core HR | to be written | ☐ not started |
 | 2 Leave, holidays, legacy migration | to be written | ☐ not started |
 | 3 Attendance + comp-off | to be written | ☐ not started |
@@ -61,6 +61,15 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
 9. **Role changes revoke sessions.** `setUserRoles` bumps the target's `session_version` when their role set
    actually changes, so their other sessions end and they sign in again. A user changing their own roles is
    exempt, so the admin is not signed out mid-action.
+10. **SMTP status and test email** (spec §5.11) move to Phase 6, alongside email notifications. Phase 0 has no
+    SMTP settings page.
+11. **Forced password change is enforced on the server.**
+    - `executeAction` returns `PASSWORD_CHANGE_REQUIRED` for users with `mustChangePassword`, so no `defineAction`
+      mutation runs with an admin-issued temporary password.
+    - Route handlers that serve user data must refuse those users too (`/api/files` returns 403). Later routes
+      (`/api/exports/*`, payslip PDFs) follow the same rule.
+12. **Unexpected action errors carry a reference.** `executeAction` logs `requestId` with the error and returns
+    "… (Reference <id>)", so a user's toast can be matched to the log line (spec §9).
 
 ## Cross-phase integration map
 
