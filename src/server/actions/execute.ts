@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { can, type Permission } from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/types";
@@ -45,6 +46,8 @@ export async function executeAction<S extends z.ZodType, P, T>(
   meta: RequestMeta = {},
 ): Promise<ActionResult<T>> {
   if (!user) return fail("UNAUTHENTICATED", "Your session has expired. Please sign in again.");
+  // Pages redirect these users to /change-password; actions must not run with an admin-issued temporary password.
+  if (user.mustChangePassword) return fail("PASSWORD_CHANGE_REQUIRED", "Change your password before continuing.");
 
   const parsed = def.schema.safeParse(raw);
   if (!parsed.success) {
@@ -82,7 +85,9 @@ export async function executeAction<S extends z.ZodType, P, T>(
     if (err instanceof DomainError) {
       return { ok: false, code: err.code, error: err.message, fieldErrors: err.fieldErrors };
     }
-    logger.error({ err, action: def.name, userId: user.id }, "action failed");
-    return fail("INTERNAL", "Something went wrong. Please try again.");
+    // The reference lets an administrator find this failure in the logs.
+    const requestId = randomBytes(4).toString("hex");
+    logger.error({ err, action: def.name, userId: user.id, requestId }, "action failed");
+    return fail("INTERNAL", `Something went wrong. Please try again. (Reference ${requestId})`);
   }
 }

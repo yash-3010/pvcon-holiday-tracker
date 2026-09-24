@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { can } from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/types";
@@ -6,6 +6,7 @@ import { executeAction } from "@/server/actions/execute";
 import type { DB } from "@/server/db/client";
 import { auditLogs, notifications } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
+import { logger } from "@/server/lib/logger";
 import { notify } from "@/server/modules/notifications/service";
 import { createTestDb } from "../helpers/db";
 import { insertUser, sessionUserFor } from "../helpers/fixtures";
@@ -24,6 +25,18 @@ describe("executeAction", () => {
   it("requires a user", async () => {
     const res = await executeAction(db, null, { name: "t", schema, handler: () => 1 }, { name: "ok" });
     expect(res).toMatchObject({ ok: false, code: "UNAUTHENTICATED" });
+  });
+
+  it("refuses users who still have to change a temporary password", async () => {
+    const pending = sessionUserFor(db, insertUser(db, { roles: ["super_admin"], mustChangePassword: true }));
+    const ran: string[] = [];
+    const res = await executeAction(
+      db, pending,
+      { name: "t", schema, prepare: async () => { ran.push("prepare"); }, handler: () => { ran.push("handler"); return 1; } },
+      { name: "ok" },
+    );
+    expect(res).toMatchObject({ ok: false, code: "PASSWORD_CHANGE_REQUIRED" });
+    expect(ran).toEqual([]);
   });
 
   it("returns field errors for invalid input", async () => {
@@ -98,6 +111,22 @@ describe("executeAction", () => {
       { name: "ok" },
     );
     expect(asyncHandler).toMatchObject({ ok: false, code: "INTERNAL" });
+  });
+
+  it("logs unexpected errors with a reference id that the caller also sees", async () => {
+    const logged: Record<string, unknown>[] = [];
+    vi.spyOn(logger, "error").mockImplementation(((obj: Record<string, unknown>) => {
+      logged.push(obj);
+    }) as unknown as typeof logger.error);
+
+    const res = await executeAction(db, admin, { name: "t.boom", schema, handler: () => { throw new Error("boom"); } }, { name: "ok" });
+
+    expect(logged).toHaveLength(1);
+    const requestId = logged[0]!.requestId as string;
+    expect(requestId).toMatch(/^[0-9a-f]{8}$/);
+    expect(logged[0]).toMatchObject({ action: "t.boom", userId: admin.id });
+    expect(res).toMatchObject({ ok: false, code: "INTERNAL" });
+    expect(!res.ok && res.error).toContain(requestId);
   });
 
   it("passes the result of async prepare to the handler and maps prepare DomainErrors", async () => {

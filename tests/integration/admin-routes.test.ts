@@ -125,6 +125,11 @@ describe("GET /api/files/[id]", () => {
     expect((await get(hrPdf.id)).status).toBe(401);
   });
 
+  it("refuses users who still have to change a temporary password", async () => {
+    state.user = sessionUserFor(state.db, insertUser(state.db, { roles: ["super_admin"], mustChangePassword: true }));
+    expect((await get(logo.id, "?inline=1")).status).toBe(403);
+  });
+
   it("hides files the user may not read behind a 404", async () => {
     const employee = sessionUserFor(state.db, insertUser(state.db, { roles: ["employee"] }));
     state.user = employee;

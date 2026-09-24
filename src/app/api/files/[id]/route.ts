@@ -11,6 +11,7 @@ const INLINE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "applicat
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (user.mustChangePassword) return NextResponse.json({ error: "password change required" }, { status: 403 });
   const id = Number((await ctx.params).id);
   const file = Number.isInteger(id) ? getFile(db, id) : undefined;
   if (!file || !canAccessFile(db, user, file)) return NextResponse.json({ error: "not found" }, { status: 404 });
