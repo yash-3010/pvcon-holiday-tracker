@@ -25,7 +25,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 
 | Phase | Detailed plan | Status |
 |---|---|---|
-| 0A Foundation — backend | `2026-09-24-phase-0a-foundation-backend.md` | ☐ not started |
+| 0A Foundation — backend | `2026-09-24-phase-0a-foundation-backend.md` | ☑ done (912fd4d) |
 | 0B Foundation — UI, auth pages, e2e | `2026-09-24-phase-0b-foundation-ui.md` | ☐ not started |
 | 1 Core HR | to be written | ☐ not started |
 | 2 Leave, holidays, legacy migration | to be written | ☐ not started |
@@ -58,6 +58,9 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
 8. **Settings UI split**
    - Phase 0 builds the Company/Locale, Security, Users & roles, Audit log and Jobs pages.
    - Each later phase adds its own settings page for its settings key: attendance, leave, compOff, payroll, employee.
+9. **Role changes revoke sessions.** `setUserRoles` bumps the target's `session_version` when their role set
+   actually changes, so their other sessions end and they sign in again. A user changing their own roles is
+   exempt, so the admin is not signed out mid-action.
 
 ## Cross-phase integration map
 
