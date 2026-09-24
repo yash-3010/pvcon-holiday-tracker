@@ -121,3 +121,10 @@ export function formatPeriod(period: Period, locale = "en-IN"): string {
     toUTCDate(`${period}-01`),
   );
 }
+
+/** Formats an ISO-8601 instant in `timeZone`, e.g. "24 Sept 2026, 1:30 am". */
+export function formatDateTime(isoInstant: string, timeZone: string, locale = "en-IN"): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone }).format(
+    new Date(isoInstant),
+  );
+}

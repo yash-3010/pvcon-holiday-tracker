@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addDays, addMonths, dateInTimeZone, dayOfWeek, daysInMonth, diffDays, eachDay, formatDate,
+  addDays, addMonths, dateInTimeZone, dayOfWeek, daysInMonth, diffDays, eachDay, formatDate, formatDateTime,
   formatPeriod, isISODate, isPeriod, monthRange, periodOf, startOfWeek, toUTCDate,
 } from "@/lib/dates";
 
@@ -55,5 +55,11 @@ describe("dates", () => {
   it("formats dates without timezone drift", () => {
     expect(formatDate("2026-01-05")).toBe("05 Jan 2026");
     expect(formatPeriod("2026-09")).toBe("September 2026");
+  });
+});
+
+describe("formatDateTime", () => {
+  it("formats instants in the company timezone", () => {
+    expect(formatDateTime("2026-09-23T20:00:00.000Z", "Asia/Kolkata")).toMatch(/24 .*2026.*1:30/);
   });
 });
