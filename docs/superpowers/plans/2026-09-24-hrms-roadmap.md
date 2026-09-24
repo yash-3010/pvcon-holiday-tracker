@@ -27,7 +27,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 |---|---|---|
 | 0A Foundation — backend | `2026-09-24-phase-0a-foundation-backend.md` | ☑ done (912fd4d) |
 | 0B Foundation — UI, auth pages, e2e | `2026-09-24-phase-0b-foundation-ui.md` | ☑ done (deb1b70) |
-| 1 Core HR | to be written | ☐ not started |
+| 1 Core HR | `2026-09-25-phase-1-core-hr.md` | ☐ not started (plan written) |
 | 2 Leave, holidays, legacy migration | to be written | ☐ not started |
 | 3 Attendance + comp-off | to be written | ☐ not started |
 | 4 Timesheets | to be written | ☐ not started |
