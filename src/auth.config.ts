@@ -1,28 +1,22 @@
 import type { NextAuthConfig } from "next-auth";
 
-export const authConfig: NextAuthConfig = {
-  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 },
+/** The JWT carries only the user id and session version; everything else is read from the DB per request. */
+export const authConfig = {
+  session: { strategy: "jwt", maxAge: 60 * 60 * 12 },
   pages: { signIn: "/login" },
   providers: [],
   callbacks: {
-    jwt: async ({ token, user, trigger, session }) => {
+    jwt({ token, user }) {
       if (user) {
-        const u = user as { id?: string; role?: "admin" | "employee"; mustChangePassword?: boolean };
-        if (u.id) token.id = u.id;
-        if (u.role) token.role = u.role;
-        if (typeof u.mustChangePassword === "boolean") token.mustChangePassword = u.mustChangePassword;
-      }
-      if (trigger === "update" && session?.mustChangePassword === false) {
-        token.mustChangePassword = false;
+        token.uid = user.id;
+        token.sv = user.sessionVersion;
       }
       return token;
     },
-    session: ({ session, token }) => {
-      const t = token as { id?: string; role?: "admin" | "employee"; mustChangePassword?: boolean };
-      if (t.id) session.user.id = t.id;
-      if (t.role) session.user.role = t.role;
-      session.user.mustChangePassword = !!t.mustChangePassword;
+    session({ session, token }) {
+      session.user.id = token.uid ?? "";
+      session.user.sessionVersion = token.sv ?? 0;
       return session;
     },
   },
-};
+} satisfies NextAuthConfig;
