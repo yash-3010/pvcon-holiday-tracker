@@ -13,3 +13,14 @@ export function filterEmployees<T extends { status: EmployeeStatus; departmentId
     return statusOk && (filter.departmentId === null || row.departmentId === filter.departmentId);
   });
 }
+
+export function filterDirectory<
+  T extends { displayName: string; employeeCode: string; workEmail: string | null; designationName: string | null; departmentId: number | null },
+>(rows: T[], filter: { query: string; departmentId: number | null }): T[] {
+  const terms = filter.query.toLowerCase().split(/\s+/).filter(Boolean);
+  return rows.filter((row) => {
+    if (filter.departmentId !== null && row.departmentId !== filter.departmentId) return false;
+    const haystack = [row.displayName, row.employeeCode, row.workEmail ?? "", row.designationName ?? ""].join(" ").toLowerCase();
+    return terms.every((term) => haystack.includes(term));
+  });
+}
