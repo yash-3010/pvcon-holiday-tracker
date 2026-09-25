@@ -223,7 +223,7 @@ describe("user management", () => {
 
     const phantom: SessionUser = {
       id: 999, email: "p@pvcon.in", name: "P", roles: ["super_admin"],
-      permissions: permissionsForRoles(["super_admin"]), mustChangePassword: false,
+      permissions: permissionsForRoles(["super_admin"]), mustChangePassword: false, employeeId: null, hasReports: false,
     };
     expectDomainError(() => setUserRoles(db, phantom, root.id, ["employee"]), "LAST_SUPER_ADMIN");
   });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  PERMISSIONS, ROLE_PERMISSIONS, ROLES, can, canAny, isPrivilegedRole, isRole, permissionsForRoles,
+  PERMISSIONS, ROLE_PERMISSIONS, ROLES, can, canAny, isPrivilegedRole, isRole, permissionsForRoles, permissionsForUser,
 } from "@/lib/auth/permissions";
 
 const holder = (...roles: (typeof ROLES)[number][]) => ({ permissions: permissionsForRoles(roles) });
@@ -54,5 +54,19 @@ describe("permissions", () => {
     expect(isPrivilegedRole("manager")).toBe(false);
     expect(canAny(holder("employee"), ["employee.view", "directory.view"])).toBe(true);
     expect(can(null, "directory.view")).toBe(false);
+  });
+});
+
+describe("permissionsForUser", () => {
+  it("gives anyone with a direct report team approvals, but not team reports", () => {
+    const withReports = { permissions: permissionsForUser(["employee"], { hasReports: true }) };
+    expect(can(withReports, "leave.approve")).toBe(true);
+    expect(can(withReports, "timesheet.approve")).toBe(true);
+    expect(can(withReports, "report.leave")).toBe(false);
+    expect(can({ permissions: permissionsForUser(["employee"], { hasReports: false }) }, "leave.approve")).toBe(false);
+  });
+
+  it("leaves role permissions unchanged otherwise", () => {
+    expect(permissionsForUser(["hr_admin"], { hasReports: false })).toEqual(permissionsForRoles(["hr_admin"]));
   });
 });

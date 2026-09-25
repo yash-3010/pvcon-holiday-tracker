@@ -146,3 +146,21 @@ export function can(user: PermissionHolder | null | undefined, permission: Permi
 export function canAny(user: PermissionHolder | null | undefined, permissions: readonly Permission[]): boolean {
   return permissions.some((p) => can(user, p));
 }
+
+/**
+ * Approval rights that anyone with at least one direct report receives for their reporting tree,
+ * even without the manager role (spec §3.2). Team reports stay with the manager role.
+ */
+export const TEAM_APPROVAL_PERMISSIONS: readonly Permission[] = [
+  "leave.approve",
+  "compoff.approve",
+  "regularization.approve",
+  "timesheet.approve",
+  "claim.approve",
+];
+
+export function permissionsForUser(roles: readonly Role[], { hasReports }: { hasReports: boolean }): Permission[] {
+  const base = permissionsForRoles(roles);
+  if (!hasReports) return base;
+  return [...new Set([...base, ...TEAM_APPROVAL_PERMISSIONS])].sort();
+}

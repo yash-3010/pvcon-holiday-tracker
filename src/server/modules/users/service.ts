@@ -1,13 +1,16 @@
 import bcrypt from "bcryptjs";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { randomInt } from "node:crypto";
 import { passwordProblems, type PasswordPolicy } from "@/lib/auth/password-policy";
-import { can, isPrivilegedRole, permissionsForRoles, type Role } from "@/lib/auth/permissions";
+import {
+  can, isPrivilegedRole, permissionsForUser, ROLE_PERMISSIONS, ROLES, type Permission, type Role,
+} from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/types";
 import type { DbLike } from "@/server/db/client";
 import { passwordResetTokens, userRoles, users, type UserRow } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { randomToken, sha256Hex } from "@/server/lib/crypto";
+import { employeeContextForUser } from "@/server/modules/employees/scope";
 
 export const BCRYPT_COST = 12;
 
@@ -47,13 +50,16 @@ export function loadSessionUser(db: DbLike, userId: number, sessionVersion: numb
   const user = getUserById(db, userId);
   if (!user || user.status !== "active" || user.sessionVersion !== sessionVersion) return null;
   const roles = getUserRoles(db, userId);
+  const { employeeId, hasReports } = employeeContextForUser(db, userId);
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     roles,
-    permissions: permissionsForRoles(roles),
+    permissions: permissionsForUser(roles, { hasReports }),
     mustChangePassword: user.mustChangePassword,
+    employeeId,
+    hasReports,
   };
 }
 
@@ -379,4 +385,18 @@ export function listUsers(db: DbLike): UserListItem[] {
         .sort(),
     };
   });
+}
+
+/** Active users whose roles grant `permission`, e.g. the HR recipients of `employee.update` notifications. */
+export function activeUserIdsWithPermission(db: DbLike, permission: Permission): number[] {
+  const roles = ROLES.filter((role) => ROLE_PERMISSIONS[role].includes(permission));
+  if (roles.length === 0) return [];
+  const ids = db
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(userRoles, eq(userRoles.userId, users.id))
+    .where(and(eq(users.status, "active"), inArray(userRoles.role, roles)))
+    .all()
+    .map((row) => row.id);
+  return [...new Set(ids)].sort((a, b) => a - b);
 }
