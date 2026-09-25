@@ -400,3 +400,17 @@ export function activeUserIdsWithPermission(db: DbLike, permission: Permission):
     .map((row) => row.id);
   return [...new Set(ids)].sort((a, b) => a - b);
 }
+
+export type ExitLoginOutcome = "disabled" | "already_disabled" | "kept_last_super_admin" | "missing";
+
+/** Disables a leaver's login and revokes their sessions, unless they are the last active super admin. */
+export function deactivateUserForExit(db: DbLike, userId: number): ExitLoginOutcome {
+  const user = getUserById(db, userId);
+  if (!user) return "missing";
+  if (user.status === "disabled") return "already_disabled";
+  if (getUserRoles(db, userId).includes("super_admin") && otherActiveSuperAdmins(db, userId) === 0) {
+    return "kept_last_super_admin";
+  }
+  db.update(users).set({ status: "disabled", sessionVersion: user.sessionVersion + 1 }).where(eq(users.id, userId)).run();
+  return "disabled";
+}
