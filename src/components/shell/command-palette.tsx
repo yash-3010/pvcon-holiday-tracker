@@ -16,7 +16,7 @@ const itemClass =
 const groupClass =
   "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground";
 
-export function CommandPalette({ permissions }: { permissions: Permission[] }) {
+export function CommandPalette({ permissions, hasEmployee }: { permissions: Permission[]; hasEmployee: boolean }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { setTheme } = useTheme();
@@ -57,7 +57,7 @@ export function CommandPalette({ permissions }: { permissions: Permission[] }) {
           />
           <Command.List className="max-h-80 overflow-y-auto p-2">
             <Command.Empty className="py-6 text-center text-sm text-muted-foreground">No results.</Command.Empty>
-            {visibleNav(permissions).map((group) => (
+            {visibleNav(permissions, { hasEmployee }).map((group) => (
               <Command.Group key={group.title} heading={group.title} className={groupClass}>
                 {group.items.map((item) => (
                   <Command.Item key={item.href} value={`${group.title} ${item.title}`} onSelect={() => go(item.href)} className={itemClass}>

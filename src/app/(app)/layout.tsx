@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }));
   return (
     <AppShell
-      user={{ name: user.name, email: user.email, permissions: user.permissions }}
+      user={{ name: user.name, email: user.email, permissions: user.permissions, hasEmployee: user.employeeId !== null }}
       unreadCount={unreadCount(db, user.id)}
       recentNotifications={recent}
     >

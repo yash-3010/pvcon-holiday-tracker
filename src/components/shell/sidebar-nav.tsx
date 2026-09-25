@@ -7,9 +7,17 @@ import type { Permission } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 import { isActivePath, visibleNav } from "./nav";
 
-export function SidebarNav({ permissions, onNavigate }: { permissions: Permission[]; onNavigate?: () => void }) {
+export function SidebarNav({
+  permissions,
+  hasEmployee,
+  onNavigate,
+}: {
+  permissions: Permission[];
+  hasEmployee: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
-  const groups = visibleNav(permissions);
+  const groups = visibleNav(permissions, { hasEmployee });
   return (
     <div className="flex h-full flex-col">
       <Link href="/" onClick={onNavigate} className="flex items-center gap-2.5 px-5 py-4">

@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const { timezone } = getSetting(db, "locale");
   const unread = unreadCount(db, user.id);
-  const shortcuts = visibleNav(user.permissions)
+  const shortcuts = visibleNav(user.permissions, { hasEmployee: user.employeeId !== null })
     .flatMap((g) => g.items)
     .filter((i) => i.href !== "/");
 

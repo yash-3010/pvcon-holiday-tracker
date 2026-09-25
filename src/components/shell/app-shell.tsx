@@ -14,7 +14,7 @@ export function AppShell({
   recentNotifications,
   children,
 }: {
-  user: { name: string; email: string; permissions: Permission[] };
+  user: { name: string; email: string; permissions: Permission[]; hasEmployee: boolean };
   unreadCount: number;
   recentNotifications: NotificationItem[];
   children: React.ReactNode;
@@ -23,12 +23,12 @@ export function AppShell({
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r bg-sidebar lg:block">
-        <SidebarNav permissions={user.permissions} />
+        <SidebarNav permissions={user.permissions} hasEmployee={user.hasEmployee} />
       </aside>
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="bg-sidebar p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <SidebarNav permissions={user.permissions} onNavigate={() => setMobileOpen(false)} />
+          <SidebarNav permissions={user.permissions} hasEmployee={user.hasEmployee} onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -41,7 +41,7 @@ export function AppShell({
         />
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
-      <CommandPalette permissions={user.permissions} />
+      <CommandPalette permissions={user.permissions} hasEmployee={user.hasEmployee} />
     </div>
   );
 }
