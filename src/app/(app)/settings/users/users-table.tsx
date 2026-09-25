@@ -14,11 +14,11 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
+import { RolePicker } from "@/components/users/role-picker";
+import { TempPasswordDialog } from "@/components/users/temp-password-dialog";
 import { ROLE_LABELS, type Role } from "@/lib/auth/permissions";
 import { resetUserPasswordAction, setUserStatusAction, updateUserRolesAction } from "./actions";
 import { AddUserSheet } from "./add-user-sheet";
-import { RolePicker } from "./role-picker";
-import { TempPasswordDialog } from "./temp-password-dialog";
 
 export interface UserRowView {
   id: number;

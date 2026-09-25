@@ -11,9 +11,9 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { RolePicker } from "@/components/users/role-picker";
 import { createUserSchema } from "@/lib/validation/users";
 import { createUserAction } from "./actions";
-import { RolePicker } from "./role-picker";
 
 type FormInput = z.input<typeof createUserSchema>;
 type FormOutput = z.output<typeof createUserSchema>;
