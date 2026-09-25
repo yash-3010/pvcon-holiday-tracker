@@ -68,14 +68,25 @@ function TemplateSheet({
           <Field label="Name" htmlFor="tpl-name" error={errors.name?.message} required>
             <Input id="tpl-name" {...form.register("name")} />
           </Field>
-          <Field label="Kind" htmlFor="tpl-kind">
-            <NativeSelect id="tpl-kind" {...form.register("kind")}>
-              {CHECKLIST_KINDS.map((kind) => (
-                <option key={kind} value={kind}>
-                  {CHECKLIST_KIND_LABELS[kind]}
-                </option>
-              ))}
-            </NativeSelect>
+          <Field label="Kind" htmlFor="tpl-kind" hint={editing ? "Fixed after creation" : undefined}>
+            {editing ? (
+              // A template's kind is immutable once created (server-enforced): show it read-only and keep it
+              // submitting via a hidden input, rather than a disabled select whose value RHF would drop.
+              <>
+                <input type="hidden" {...form.register("kind")} />
+                <p id="tpl-kind" className="flex h-9 items-center rounded-md border border-input bg-muted px-3 text-sm">
+                  {CHECKLIST_KIND_LABELS[editing.kind]}
+                </p>
+              </>
+            ) : (
+              <NativeSelect id="tpl-kind" {...form.register("kind")}>
+                {CHECKLIST_KINDS.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {CHECKLIST_KIND_LABELS[kind]}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
           </Field>
           <div className="flex items-center gap-2">
             <Controller

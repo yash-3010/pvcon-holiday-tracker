@@ -41,6 +41,14 @@ describe("checklist templates", () => {
     expect(instantiateChecklist(db, insertEmployee(db).id, "onboarding")).toBeNull();
     expectDomainError(() => updateChecklistTemplate(db, template.id, interns), "ARCHIVED");
   });
+
+  it("keeps a template's kind fixed after creation", () => {
+    const template = createChecklistTemplate(db, interns);
+    expectDomainError(() => updateChecklistTemplate(db, template.id, { ...interns, kind: "offboarding" }), "KIND_LOCKED");
+    const stored = listChecklistTemplates(db).find((t) => t.id === template.id)!;
+    expect(stored).toMatchObject({ kind: "onboarding", isDefault: true });
+    expect(instantiateChecklist(db, insertEmployee(db).id, "onboarding")).toMatchObject({ templateId: template.id });
+  });
 });
 
 describe("employee checklists", () => {

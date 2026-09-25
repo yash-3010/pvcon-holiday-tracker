@@ -59,6 +59,11 @@ export function updateChecklistTemplate(
   input: ChecklistTemplateInput,
 ): { before: ChecklistTemplateRow; after: ChecklistTemplateRow } {
   const before = requireTemplate(db, id);
+  if (input.kind !== before.kind) {
+    throw new DomainError("KIND_LOCKED", "A template's kind can't be changed. Create a new template instead.", {
+      kind: ["Can't be changed"],
+    });
+  }
   if (before.archived && input.isDefault) {
     throw new DomainError("ARCHIVED", "Restore this template before making it the default.");
   }
