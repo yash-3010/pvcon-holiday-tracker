@@ -41,13 +41,21 @@ export function employeeContextForUser(db: DbLike, userId: number): { employeeId
 }
 
 /**
+ * True when `user` manages `employeeId`: a manager above them in the reporting tree. Self is never "above"
+ * (`getReportingTree` never includes the manager's own id), and merely holding `employee.view` is not enough —
+ * use `isInScope` when an org-wide viewer should also qualify.
+ */
+export function isManagerAbove(db: DbLike, user: ScopeUser, employeeId: number): boolean {
+  if (user.employeeId === null) return false;
+  return getReportingTree(db, user.employeeId).includes(employeeId);
+}
+
+/**
  * True when `user` may act on `employeeId` as an org-wide viewer (`employee.view`) or as a manager above them.
  * Self is deliberately not "in scope" so approvals can never be self-approvals; use `canViewEmployee` for viewing.
  */
 export function isInScope(db: DbLike, user: ScopeUser, employeeId: number): boolean {
-  if (can(user, "employee.view")) return true;
-  if (user.employeeId === null || user.employeeId === employeeId) return false;
-  return getReportingTree(db, user.employeeId).includes(employeeId);
+  return can(user, "employee.view") || isManagerAbove(db, user, employeeId);
 }
 
 export function canViewEmployee(db: DbLike, user: ScopeUser, employeeId: number): boolean {

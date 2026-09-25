@@ -146,7 +146,7 @@ describe("document actions", () => {
 });
 
 describe("checklist action", () => {
-  it("lets the employee, managers above them and HR tick items, but not a peer", async () => {
+  it("lets the employee, managers above them and HR tick items, but not a peer or a payroll admin", async () => {
     const checklist = state.db.select().from(employeeChecklists).where(eq(employeeChecklists.employeeId, ravi.id)).get()!;
     const tick = (index: number) => toggleChecklistItemAction({ checklistId: checklist.id, index, done: true });
     state.user = sessionAs(ravi);
@@ -154,6 +154,8 @@ describe("checklist action", () => {
     state.user = sessionAs(asha);
     await expect(tick(1)).resolves.toMatchObject({ ok: true });
     state.user = sessionAs(createEmployee(state.db, hr, employeeInput({ firstName: "Meera" }), none));
+    await expect(tick(2)).resolves.toMatchObject({ code: "FORBIDDEN" });
+    state.user = sessionAs(null, ["payroll_admin"]);
     await expect(tick(2)).resolves.toMatchObject({ code: "FORBIDDEN" });
     state.user = hr;
     await expect(tick(2)).resolves.toMatchObject({ ok: true });

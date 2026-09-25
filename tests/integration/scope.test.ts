@@ -4,7 +4,7 @@ import { permissionsForRoles, type Role } from "@/lib/auth/permissions";
 import type { DB } from "@/server/db/client";
 import { employees, users, type EmployeeRow } from "@/server/db/schema";
 import {
-  canViewEmployee, employeeContextForUser, getReportingTree, isInScope, viewableEmployeeIds,
+  canViewEmployee, employeeContextForUser, getReportingTree, isInScope, isManagerAbove, viewableEmployeeIds,
 } from "@/server/modules/employees/scope";
 import { activeUserIdsWithPermission, loadSessionUser } from "@/server/modules/users/service";
 import { createTestDb } from "../helpers/db";
@@ -83,6 +83,16 @@ describe("scope checks", () => {
   it("gives org-wide viewers everyone", () => {
     expect(isInScope(db, viewer(null, ["hr_admin"]), kiran.id)).toBe(true);
     expect(viewableEmployeeIds(db, viewer(null, ["payroll_admin"]))).toBe("all");
+  });
+
+  it("isManagerAbove only counts the reporting tree, never a mere employee.view holder", () => {
+    expect(isManagerAbove(db, viewer(asha), kiran.id)).toBe(true);
+    expect(isManagerAbove(db, viewer(asha), meera.id)).toBe(false);
+    expect(isManagerAbove(db, viewer(asha), ceo.id)).toBe(false);
+    expect(isManagerAbove(db, viewer(asha), asha.id)).toBe(false);
+    expect(isManagerAbove(db, viewer(null), kiran.id)).toBe(false);
+    expect(isManagerAbove(db, viewer(null, ["payroll_admin"]), kiran.id)).toBe(false);
+    expect(isManagerAbove(db, viewer(null, ["hr_admin"]), kiran.id)).toBe(false);
   });
 
   it("lets people view themselves plus their tree", () => {

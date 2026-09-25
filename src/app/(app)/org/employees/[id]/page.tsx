@@ -22,7 +22,7 @@ import { db } from "@/server/db";
 import { listEmployeeChecklists } from "@/server/modules/employees/checklists";
 import { listEmployeeDocuments } from "@/server/modules/employees/documents";
 import { employeeOptions, getEmployeeDetail, listEmployeeEvents, unlinkedUserOptions } from "@/server/modules/employees/queries";
-import { canViewEmployee, getReportingTree, isInScope } from "@/server/modules/employees/scope";
+import { canViewEmployee, getReportingTree, isManagerAbove } from "@/server/modules/employees/scope";
 import { departmentOptions, designationOptions } from "@/server/modules/org/queries";
 import { getSetting } from "@/server/modules/settings/service";
 import { BankForm } from "./bank-form";
@@ -58,7 +58,7 @@ export default async function EmployeeProfilePage({
   const showPrivate = isSelf || can(user, "employee.view");
   const canEdit = can(user, "employee.update") && employee.status !== "exited";
   const canManageLogins = can(user, "user.manage") || can(user, "role.assign");
-  const canTick = can(user, "employee.update") || isSelf || isInScope(db, user, id);
+  const canTick = can(user, "employee.update") || isSelf || isManagerAbove(db, user, id);
   const timeZone = getSetting(db, "locale").timezone;
   const today = todayInTimeZone(timeZone);
   const excluded = new Set([id, ...getReportingTree(db, id)]);
@@ -67,8 +67,9 @@ export default async function EmployeeProfilePage({
   const tabs = [
     { value: "overview", label: "Overview" },
     { value: "job", label: "Job" },
-    ...(showPrivate ? [{ value: "personal", label: "Personal" }, { value: "bank", label: "Bank & IDs" }] : []),
-    { value: "documents", label: "Documents" },
+    ...(showPrivate
+      ? [{ value: "personal", label: "Personal" }, { value: "bank", label: "Bank & IDs" }, { value: "documents", label: "Documents" }]
+      : []),
     ...(can(user, "salary.view") ? [{ value: "salary", label: "Salary" }] : []),
     { value: "attendance", label: "Attendance" },
     { value: "leave", label: "Leave" },
@@ -238,16 +239,18 @@ export default async function EmployeeProfilePage({
           </TabsContent>
         )}
 
-        <TabsContent value="documents">
-          <DocumentsCard
-            employeeId={id}
-            documents={listEmployeeDocuments(db, id)}
-            categories={DOCUMENT_CATEGORIES}
-            canUpload={can(user, "document.manage")}
-            canDelete={can(user, "document.manage")}
-            timeZone={timeZone}
-          />
-        </TabsContent>
+        {showPrivate && (
+          <TabsContent value="documents">
+            <DocumentsCard
+              employeeId={id}
+              documents={listEmployeeDocuments(db, id)}
+              categories={DOCUMENT_CATEGORIES}
+              canUpload={can(user, "document.manage")}
+              canDelete={can(user, "document.manage")}
+              timeZone={timeZone}
+            />
+          </TabsContent>
+        )}
 
         {can(user, "salary.view") && (
           <TabsContent value="salary">

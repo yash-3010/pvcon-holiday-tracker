@@ -15,7 +15,7 @@ import { diffObjects } from "@/server/modules/audit/service";
 import { getEmployeeChecklist, toggleChecklistItem } from "@/server/modules/employees/checklists";
 import { addEmployeeDocument, deleteEmployeeDocument } from "@/server/modules/employees/documents";
 import { recordResignation, withdrawResignation } from "@/server/modules/employees/lifecycle";
-import { isInScope } from "@/server/modules/employees/scope";
+import { isManagerAbove } from "@/server/modules/employees/scope";
 import {
   createEmployee, createEmployeeLogin, linkEmployeeUser, requireEmployee, updateEmployeeBank, updateEmployeeJob,
   updateEmployeePersonal, type LoginPlan,
@@ -240,7 +240,7 @@ export const toggleChecklistItemAction = defineAction({
     const checklist = getEmployeeChecklist(tx, checklistId);
     if (!checklist) throw new DomainError("NOT_FOUND", "Checklist not found.");
     const allowed =
-      can(user, "employee.update") || user.employeeId === checklist.employeeId || isInScope(tx, user, checklist.employeeId);
+      can(user, "employee.update") || user.employeeId === checklist.employeeId || isManagerAbove(tx, user, checklist.employeeId);
     if (!allowed) throw new DomainError("FORBIDDEN", "You can't update this checklist.");
     const updated = toggleChecklistItem(tx, checklistId, index, done, { id: user.id, name: user.name });
     audit({

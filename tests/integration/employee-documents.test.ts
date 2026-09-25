@@ -56,7 +56,7 @@ describe("employee documents", () => {
 });
 
 describe("document file access", () => {
-  it("allows the employee, managers above them, HR and org-wide viewers, but not peers", () => {
+  it("allows the employee, HR and org-wide viewers, but not managers above or peers", () => {
     const ceo = insertEmployee(db);
     const asha = insertEmployee(db, { reportingManagerId: ceo.id });
     const kiran = insertEmployee(db, { reportingManagerId: asha.id });
@@ -65,8 +65,9 @@ describe("document file access", () => {
     addEmployeeDocument(db, { employeeId: kiran.id, category: "id_proof", title: "PAN card", fileId: file.id, uploadedBy: null });
 
     expect(canAccessFile(db, sessionAs(kiran), file)).toBe(true);
-    expect(canAccessFile(db, sessionAs(asha), file)).toBe(true);
-    expect(canAccessFile(db, sessionAs(ceo), file)).toBe(true);
+    // Documents are as private as Bank & IDs: a manager above does not get them, even though they can view the profile.
+    expect(canAccessFile(db, sessionAs(asha), file)).toBe(false);
+    expect(canAccessFile(db, sessionAs(ceo), file)).toBe(false);
     expect(canAccessFile(db, sessionAs(meera), file)).toBe(false);
     expect(canAccessFile(db, sessionAs(null, ["hr_admin"]), file)).toBe(true);
     expect(canAccessFile(db, sessionAs(null, ["payroll_admin"]), file)).toBe(true);
