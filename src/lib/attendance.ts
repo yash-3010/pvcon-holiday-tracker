@@ -71,3 +71,123 @@ export const COMP_OFF_LOT_STATUS_LABELS: Record<CompOffLotStatus, string> = {
   expired: "Expired",
   paid_out: "Paid out",
 };
+
+// ---------------------------------------------------------------------------------------------------------------
+// Daily computation (spec §5.2). Times are local minutes since midnight in the company time zone.
+
+export interface PunchAt {
+  minutes: number;
+  direction: PunchDirection;
+}
+
+export interface Session {
+  inMinutes: number;
+  /** null while still clocked in. */
+  outMinutes: number | null;
+}
+
+/** In→out pairs in time order. A second `in` while one is open and an `out` with nothing open are ignored. */
+export function pairPunches(punches: readonly PunchAt[]): Session[] {
+  const sessions: Session[] = [];
+  let open: Session | null = null;
+  for (const p of [...punches].sort((a, b) => a.minutes - b.minutes)) {
+    if (p.direction === "in" && !open) {
+      open = { inMinutes: p.minutes, outMinutes: null };
+      sessions.push(open);
+    } else if (p.direction === "out" && open) {
+      open.outMinutes = p.minutes;
+      open = null;
+    }
+  }
+  return sessions;
+}
+
+export interface ShiftRules {
+  startMinutes: number;
+  endMinutes: number;
+  graceMinutes: number;
+  halfDayMinutes: number;
+  fullDayMinutes: number;
+  weeklyOffs: readonly number[];
+  mode: AttendanceMode;
+}
+
+export interface AttendanceDayInput {
+  date: string;
+  /** 0 = Sunday. */
+  weekday: number;
+  dateOfJoining: string;
+  lastWorkingDate: string | null;
+  shift: ShiftRules;
+  /** Name of a fixed holiday or a picked optional one. */
+  holiday: string | null;
+  /** Approved leave touching the date. */
+  leave: readonly { portion: "full" | "first_half" | "second_half"; requestId: number }[];
+  sessions: readonly Session[];
+  /** For today: an open session counts up to now. */
+  nowMinutes: number | null;
+  override: AttendanceStatus | null;
+}
+
+export interface AttendanceDayResult {
+  status: AttendanceStatus;
+  firstIn: number | null;
+  lastOut: number | null;
+  workedMinutes: number;
+  lateMinutes: number;
+  earlyMinutes: number;
+  overtimeMinutes: number;
+  offDayWorked: boolean;
+  leaveRequestId: number | null;
+}
+
+export function computeAttendanceDay(input: AttendanceDayInput): AttendanceDayResult {
+  const { shift, sessions } = input;
+  const workedMinutes = sessions.reduce((sum, s) => {
+    const end = s.outMinutes ?? input.nowMinutes;
+    return end === null ? sum : sum + Math.max(0, end - s.inMinutes);
+  }, 0);
+  const firstIn = sessions.length ? Math.min(...sessions.map((s) => s.inMinutes)) : null;
+  const last = sessions.at(-1);
+  const lastOut = last && last.outMinutes !== null ? last.outMinutes : null;
+
+  const portions = new Set(input.leave.map((l) => l.portion));
+  const fullLeave = portions.has("full") || (portions.has("first_half") && portions.has("second_half"));
+  const leaveRequestId = input.leave[0]?.requestId ?? null;
+  const offDay = input.holiday !== null || shift.weeklyOffs.includes(input.weekday);
+  const workingDay = !offDay && !fullLeave;
+
+  let status: AttendanceStatus;
+  if (input.date < input.dateOfJoining) status = "not_joined";
+  else if (input.lastWorkingDate !== null && input.date > input.lastWorkingDate) status = "exited";
+  else if (input.override) status = input.override;
+  else if (fullLeave) status = "on_leave";
+  else if (input.holiday !== null) status = "holiday";
+  else if (shift.weeklyOffs.includes(input.weekday)) status = "weekly_off";
+  else if (portions.size > 0) status = "half_leave";
+  else if (shift.mode === "auto") status = "present";
+  else if (workedMinutes >= shift.fullDayMinutes) status = "present";
+  else if (workedMinutes >= shift.halfDayMinutes) status = "half_day";
+  else status = "absent";
+
+  return {
+    status,
+    firstIn,
+    lastOut,
+    workedMinutes,
+    // A morning half-day leave means arriving after lunch is not late; an afternoon one, leaving at lunch is not early.
+    lateMinutes:
+      workingDay && firstIn !== null && !portions.has("first_half") ? Math.max(0, firstIn - (shift.startMinutes + shift.graceMinutes)) : 0,
+    earlyMinutes: workingDay && lastOut !== null && !portions.has("second_half") ? Math.max(0, shift.endMinutes - lastOut) : 0,
+    overtimeMinutes: offDay ? workedMinutes : workingDay ? Math.max(0, workedMinutes - shift.fullDayMinutes) : 0,
+    offDayWorked: offDay && workedMinutes > 0,
+    leaveRequestId,
+  };
+}
+
+/** Comp-off days earned by off-day work (spec §5.5): a full day, a half day, or nothing. */
+export function compOffDaysFor(workedMinutes: number, thresholds: { half: number; full: number }): 0 | 0.5 | 1 {
+  if (workedMinutes >= thresholds.full) return 1;
+  if (workedMinutes >= thresholds.half) return 0.5;
+  return 0;
+}
