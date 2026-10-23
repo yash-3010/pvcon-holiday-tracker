@@ -14,6 +14,7 @@ import { recordEmployeeEvent } from "@/server/modules/employees/service";
 import { setYearConfig } from "@/server/modules/holidays/service";
 import { postLedger } from "@/server/modules/leave/ledger";
 import { seedDefaultLeaveTypes } from "@/server/modules/leave/types";
+import { seedTimesheetDefaults } from "@/server/modules/projects/service";
 import { getSetting } from "@/server/modules/settings/service";
 import { createUser } from "@/server/modules/users/service";
 import { legacyPolicy, legacyYearsFor, type LegacyLeave, type LegacySource, type LegacyUser } from "./source";
@@ -68,7 +69,7 @@ function halvesFor(leave: LegacyLeave): LeaveHalf {
 
 /**
  * Copies the old Holiday Tracker data into a freshly migrated database (spec §8, steps 1–7 and 9). Runs in one
- * transaction. Seeds leave types and checklist templates, but not the seed admin: old admins
+ * transaction. Seeds leave types, checklist templates and timesheet defaults, but not the seed admin: old admins
  * become super admins.
  */
 export function migrateLegacy(source: LegacySource, db: DB, { now = new Date() }: { now?: Date } = {}): { report: MigrationReport; map: MigrationMap } {
@@ -86,6 +87,7 @@ function run(source: LegacySource, db: DbLike, now: Date): { report: MigrationRe
   seedDefaultLeaveTypes(db);
   // Auto mode: migrated people have no punches, so their history must not read as absent (spec §8 step 7).
   seedDefaultShift(db, { attendanceMode: "auto" });
+  seedTimesheetDefaults(db);
 
   // 1. Leave types follow the most recent policy year.
   const latest = source.policies.at(-1) ?? legacyPolicy(source, new Date().getUTCFullYear());
