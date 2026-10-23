@@ -1,7 +1,7 @@
 import { and, eq, ne } from "drizzle-orm";
 import type { Role } from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/types";
-import type { ISODate } from "@/lib/dates";
+import { todayInTimeZone, type ISODate } from "@/lib/dates";
 import { fullName, type EmployeeEventType, type EventValues } from "@/lib/hr";
 import type { BankInput, ContactInput, JobInput, PersonalInput } from "@/lib/validation/employees";
 import type { DbLike } from "@/server/db/client";
@@ -9,6 +9,8 @@ import {
   departments, designations, employeeEvents, employees, users, type EmployeeEventRow, type EmployeeRow,
 } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
+import { syncEntitlements } from "@/server/modules/leave/ledger";
+import { getSetting } from "@/server/modules/settings/service";
 import { assertCanGrantRoles, createUser, findUserByEmail, getUserById } from "@/server/modules/users/service";
 import { instantiateChecklist } from "./checklists";
 import { nextEmployeeCode } from "./code";
@@ -197,6 +199,9 @@ export function createEmployee(
     .get();
   recordEmployeeEvent(db, { employeeId: row.id, type: "joined", effectiveDate: row.dateOfJoining, to: jobSnapshot(db, row), createdBy: actor.id });
   if (opts.onboarding) instantiateChecklist(db, row.id, "onboarding");
+  // Leave grants for the year they join in (spec §5.4); later years come from the leave jobs.
+  const today = todayInTimeZone(getSetting(db, "locale").timezone);
+  syncEntitlements(db, row.id, row.dateOfJoining > today ? row.dateOfJoining : today);
   return row;
 }
 

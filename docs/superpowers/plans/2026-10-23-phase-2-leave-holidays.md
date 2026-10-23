@@ -295,11 +295,11 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - `pendingDays(db, employeeId, leaveTypeId, year, excludeRequestId?)`: the sum of `days` of pending requests whose start
   falls in that leave year.
 - `balancesFor(db, employeeId, year)` → per non-archived type:
-  - `{ type, opening, credited, used, adjusted, lapsed, balance, pending, available }`;
-  - `opening` = carry_forward + opening;
+  - `{ type, opening, credited, used, adjusted, closed, balance, pending, available }`;
+  - `opening` = carry_forward in (positive) + opening;
   - `credited` = grant + accrual + comp_off_credit;
   - `used` = −(taken + cancelled);
-  - `lapsed` = −(lapse + comp_off_lapse + encashment);
+  - `closed` = −(carry_forward out + lapse + comp_off_lapse + encashment);
   - `available` = balance − pending.
 - `syncEntitlements(db, employeeId, asOf: ISODate): { granted: number; accrued: number }`, for the leave year containing `asOf`:
   - skipped for exited employees, archived types, types not applicable to the employment type, and joiners after the year ends;
@@ -309,7 +309,8 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
     month's 1st, post `accrualCredit(quota, k)` (when non-zero).
 - `closeLeaveYear(db, employeeId, year): { carried: number; lapsed: number }`:
   - skips `is_comp_off` types (Phase 3 expires lots), and types with no ledger rows that year;
-  - balance > 0: post `carry_forward` +min(balance, carryForwardMax) into `year + 1`, dated the next year's start;
+  - balance > 0: carry c = min(balance, carryForwardMax) as a pair of `carry_forward` rows, −c in `year` (dated the
+    year's end) and +c in `year + 1` (dated its start), so the closed year nets to zero and can't be spent twice;
     post `lapse` −rest into `year`, dated the year's end;
   - balance ≤ 0: nothing;
   - idempotent: skipped when a `ref_type = 'year_end'`, `ref_id = year` row exists for (employee, type);
