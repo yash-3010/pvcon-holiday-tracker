@@ -129,6 +129,61 @@ export function formatDateTime(isoInstant: string, timeZone: string, locale = "e
   );
 }
 
+function zoneParts(instant: Date, timeZone: string): Record<string, number> {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+  }).formatToParts(instant);
+  return Object.fromEntries(parts.filter((p) => p.type !== "literal").map((p) => [p.type, Number(p.value)]));
+}
+
+/** Minutes since local midnight of `instant` in `timeZone`. */
+export function minutesInZone(instant: Date, timeZone: string): number {
+  const p = zoneParts(instant, timeZone);
+  return (p.hour % 24) * 60 + p.minute;
+}
+
+/** Offset of `timeZone` from UTC at `instant`, in minutes (IST = 330). */
+function zoneOffsetMinutes(instant: Date, timeZone: string): number {
+  const p = zoneParts(instant, timeZone);
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute);
+  return Math.round((asUtc - Math.floor(instant.getTime() / 60_000) * 60_000) / 60_000);
+}
+
+/**
+ * The instant of local wall-clock `minutes` past midnight on `date` in `timeZone`. A time skipped by a DST change moves
+ * forward (02:30 → 03:30); a repeated one takes its first occurrence.
+ */
+export function zonedInstant(date: ISODate, minutes: number, timeZone: string): Date {
+  const wall = toUTCDate(date).getTime() + minutes * 60_000;
+  const first = wall - zoneOffsetMinutes(new Date(wall), timeZone) * 60_000;
+  const second = wall - zoneOffsetMinutes(new Date(first), timeZone) * 60_000;
+  for (const candidate of [first, second]) {
+    const instant = new Date(candidate);
+    if (dateInTimeZone(instant, timeZone) === date && minutesInZone(instant, timeZone) === minutes) return instant;
+  }
+  return new Date(Math.max(first, second));
+}
+
+const HM_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/** "09:30" → 570. */
+export function parseHm(value: string): number {
+  const m = HM_RE.exec(value);
+  if (!m) throw new RangeError(`Invalid time: ${value}`);
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/** 570 → "09:30". */
+export function formatHm(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+/** 125 → "2h 05m", 45 → "45m". */
+export function formatMinutes(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+}
+
 export const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
 ] as const;
