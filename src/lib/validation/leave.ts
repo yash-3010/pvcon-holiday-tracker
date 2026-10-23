@@ -7,35 +7,36 @@ const id = z.number().int().positive();
 const halfSteps = (max: number) =>
   z.number().min(0).max(max, `At most ${max}`).refine(isHalfStep, "Use steps of 0.5 days");
 
-export const leaveTypeSchema = z
-  .object({
-    code: z
-      .string()
-      .trim()
-      .toUpperCase()
-      .regex(/^[A-Z][A-Z0-9_]{0,9}$/, "1–10 letters, digits or _, starting with a letter"),
-    name: z.string().trim().min(1, "Required").max(60),
-    color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Pick a colour"),
-    paid: z.boolean(),
-    isLop: z.boolean(),
-    accrual: z.enum(LEAVE_ACCRUALS),
-    annualQuota: halfSteps(365),
-    carryForwardMax: halfSteps(365),
-    encashable: z.boolean(),
-    allowHalfDay: z.boolean(),
-    allowNegative: z.boolean(),
-    maxConsecutiveDays: z.number().int().min(1).max(365).nullable(),
-    minNoticeDays: z.number().int().min(0).max(365),
-    attachmentAfterDays: halfSteps(365).nullable(),
-    countWeekends: z.boolean(),
-    /** null = every employment type. */
-    applicableEmploymentTypes: z.array(z.enum(EMPLOYMENT_TYPES)).min(1, "Pick at least one, or allow all").nullable(),
-  })
-  .superRefine((value, ctx) => {
-    if (value.isLop && value.paid) {
-      ctx.addIssue({ code: "custom", path: ["paid"], message: "Loss-of-pay leave cannot be paid" });
-    }
-  });
+const leaveTypeShape = {
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z][A-Z0-9_]{0,9}$/, "1–10 letters, digits or _, starting with a letter"),
+  name: z.string().trim().min(1, "Required").max(60),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Pick a colour"),
+  paid: z.boolean(),
+  isLop: z.boolean(),
+  accrual: z.enum(LEAVE_ACCRUALS),
+  annualQuota: halfSteps(365),
+  carryForwardMax: halfSteps(365),
+  encashable: z.boolean(),
+  allowHalfDay: z.boolean(),
+  allowNegative: z.boolean(),
+  maxConsecutiveDays: z.number().int().min(1).max(365).nullable(),
+  minNoticeDays: z.number().int().min(0).max(365),
+  attachmentAfterDays: halfSteps(365).nullable(),
+  countWeekends: z.boolean(),
+  /** null = every employment type. */
+  applicableEmploymentTypes: z.array(z.enum(EMPLOYMENT_TYPES)).min(1, "Pick at least one, or allow all").nullable(),
+};
+
+function checkLeaveType(value: { isLop: boolean; paid: boolean }, ctx: z.RefinementCtx) {
+  if (value.isLop && value.paid) ctx.addIssue({ code: "custom", path: ["paid"], message: "Loss-of-pay leave cannot be paid" });
+}
+
+export const leaveTypeSchema = z.object(leaveTypeShape).superRefine(checkLeaveType);
+export const updateLeaveTypeSchema = z.object({ ...leaveTypeShape, id }).superRefine(checkLeaveType);
 export type LeaveTypeInput = z.output<typeof leaveTypeSchema>;
 
 const applyShape = {
