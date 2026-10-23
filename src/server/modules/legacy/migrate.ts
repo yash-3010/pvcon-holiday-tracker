@@ -127,7 +127,7 @@ function run(source: LegacySource, db: DbLike): { report: MigrationReport; map: 
         })
         .returning()
         .get();
-      recordEmployeeEvent(db, { employeeId: employee.id, type: "joined", effectiveDate: employee.dateOfJoining, note: NOTE });
+      recordEmployeeEvent(db, { employeeId: employee.id, type: "joined", effectiveDate: employee.dateOfJoining, note: NOTE, createdBy: null });
       employeeId = employee.id;
       report.employees += 1;
       if (!user.active) report.exitedEmployees += 1;

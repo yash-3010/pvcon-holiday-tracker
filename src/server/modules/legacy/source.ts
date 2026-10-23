@@ -72,7 +72,7 @@ export function readLegacy(sqlite: Database.Database): LegacySource {
   }
   const all = <T>(query: string) => sqlite.prepare(query).all() as T[];
   return {
-    users: all<LegacyUser & { mustChangePassword: number; active: number }>(
+    users: all<Omit<LegacyUser, "mustChangePassword" | "active"> & { mustChangePassword: number; active: number }>(
       `select id, name, email, password_hash as passwordHash, role, joined_date as joinedDate,
               must_change_password as mustChangePassword, active, created_at as createdAt
        from users order by id`,
