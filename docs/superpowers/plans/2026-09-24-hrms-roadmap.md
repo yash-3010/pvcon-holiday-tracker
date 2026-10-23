@@ -30,7 +30,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 | 1 Core HR | `2026-09-25-phase-1-core-hr.md` | ☑ done (049b86d) |
 | 2 Leave, holidays, legacy migration | `2026-10-23-phase-2-leave-holidays.md` | ☑ done (05b006a) |
 | 3 Attendance + comp-off | `2026-10-24-phase-3-attendance-compoff.md` | ☑ done (f3684ce) |
-| 4 Timesheets | to be written | ☐ not started |
+| 4 Timesheets | `2026-10-24-phase-4-timesheets.md` | ◐ in progress (plan written) |
 | 5 Payroll + payslips | to be written | ☐ not started |
 | 6 Insight, notifications, polish, deploy | to be written | ☐ not started |
 
