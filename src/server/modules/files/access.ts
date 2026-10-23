@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { can } from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/types";
 import type { DbLike } from "@/server/db/client";
-import { employeeDocuments, type FileRow } from "@/server/db/schema";
+import { employeeDocuments, leaveRequests, type FileRow } from "@/server/db/schema";
+import { canDecideLeave } from "@/server/modules/leave/requests";
 import { getSetting } from "@/server/modules/settings/service";
 
 export type FileAccessResolver = (db: DbLike, user: SessionUser, file: FileRow) => boolean;
@@ -25,6 +26,18 @@ const RESOLVERS: FileAccessResolver[] = [
       .where(eq(employeeDocuments.fileId, file.id))
       .get();
     return !!doc && (can(user, "document.manage") || can(user, "employee.view") || user.employeeId === doc.employeeId);
+  },
+  // A leave document (e.g. a medical note) is for the employee, org-wide leave viewers and whoever may decide the leave.
+  (db, user, file) => {
+    const request = db
+      .select({ employeeId: leaveRequests.employeeId })
+      .from(leaveRequests)
+      .where(eq(leaveRequests.attachmentFileId, file.id))
+      .get();
+    return (
+      !!request &&
+      (user.employeeId === request.employeeId || can(user, "leave.view.all") || canDecideLeave(db, user, request.employeeId))
+    );
   },
 ];
 
