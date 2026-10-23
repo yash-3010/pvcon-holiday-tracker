@@ -128,3 +128,7 @@ export function formatDateTime(isoInstant: string, timeZone: string, locale = "e
     new Date(isoInstant),
   );
 }
+
+export const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
+] as const;

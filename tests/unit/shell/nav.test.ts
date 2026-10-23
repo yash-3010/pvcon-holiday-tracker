@@ -9,8 +9,22 @@ describe("navigation", () => {
   it("shows employees home and the directory, and My Space once linked to an employee record", () => {
     const employee = permissionsForRoles(["employee"]);
     expect(visibleNav(employee).map((g) => g.title)).toEqual(["Home", "Organization"]);
-    expect(visibleNav(employee, { hasEmployee: true }).map((g) => g.title)).toEqual(["Home", "My Space", "Organization"]);
+    expect(visibleNav(employee, { hasEmployee: true }).map((g) => g.title)).toEqual(["Home", "My Space", "Team", "Organization"]);
     expect(hrefs(["employee"])).toEqual(["/", "/notifications", "/org/directory", "/org/chart"]);
+    expect(hrefs(["employee"], true)).toEqual(expect.arrayContaining(["/me/leave", "/team/calendar"]));
+    expect(hrefs(["employee"], true)).not.toContain("/approvals");
+  });
+
+  it("shows leave pages by permission", () => {
+    expect(hrefs(["manager"], true)).toEqual(expect.arrayContaining(["/approvals", "/leave/requests", "/team/calendar"]));
+    expect(hrefs(["manager"], true)).not.toContain("/leave/balances");
+    expect(hrefs(["hr_admin"])).toEqual(
+      expect.arrayContaining(["/team/calendar", "/leave/requests", "/leave/balances", "/leave/types", "/leave/holidays", "/settings/leave"]),
+    );
+    // Payroll reads leave (loss of pay) but neither decides nor configures it.
+    expect(hrefs(["payroll_admin"])).toEqual(expect.arrayContaining(["/team/calendar", "/leave/requests", "/leave/balances"]));
+    expect(hrefs(["payroll_admin"])).not.toContain("/leave/types");
+    expect(hrefs(["payroll_admin"])).not.toContain("/approvals");
   });
 
   it("shows HR the org masters, approvals and users, but not company settings or jobs", () => {
