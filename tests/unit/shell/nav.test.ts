@@ -41,6 +41,15 @@ describe("navigation", () => {
     expect(visibleNav(permissionsForRoles(["hr_admin"])).map((g) => g.title)).toEqual(["Home", "Team", "Time", "Organization", "Leave", "Settings"]);
   });
 
+  it("shows timesheet pages by permission", () => {
+    expect(hrefs(["employee"], true)).toContain("/me/timesheets");
+    expect(hrefs(["employee"])).not.toContain("/me/timesheets");
+    expect(hrefs(["manager"], true)).toContain("/approvals");
+    expect(hrefs(["manager"], true)).not.toContain("/time/projects");
+    expect(hrefs(["hr_admin"])).toEqual(expect.arrayContaining(["/time/projects", "/time/clients", "/time/categories"]));
+    expect(hrefs(["payroll_admin"])).not.toContain("/time/projects");
+  });
+
   it("shows HR the org masters, approvals and users, but not company settings or jobs", () => {
     const items = hrefs(["hr_admin"]);
     expect(items).toEqual(

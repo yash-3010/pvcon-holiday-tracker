@@ -1,7 +1,7 @@
 import {
-  BadgeCheck, Bell, Building, Building2, CalendarClock, CalendarCog, CalendarDays, CalendarRange, ClipboardList, Clock,
-  Contact, FileText, Fingerprint, Gift, Grid3x3, House, IdCard, Inbox, ListChecks, Network, PartyPopper, Scale, ScrollText,
-  ShieldCheck, Tags, Timer, Upload, UserRound, UserRoundCheck, Users, type LucideIcon,
+  BadgeCheck, Bell, Building, Building2, CalendarClock, CalendarCog, CalendarDays, CalendarRange, ClipboardClock, ClipboardList,
+  Clock, Contact, FileText, Fingerprint, FolderKanban, Gift, Grid3x3, Handshake, House, IdCard, Inbox, ListChecks, Network,
+  PartyPopper, Scale, ScrollText, Shapes, ShieldCheck, Tags, Timer, Upload, UserRound, UserRoundCheck, Users, type LucideIcon,
 } from "lucide-react";
 import { canAny, type Permission } from "@/lib/auth/permissions";
 
@@ -30,7 +30,7 @@ export const NAV: NavGroup[] = [
       { title: "Dashboard", href: "/", icon: House },
       {
         title: "Approvals", href: "/approvals", icon: Inbox,
-        anyOf: ["employee.update", "leave.approve", "regularization.approve", "compoff.approve"],
+        anyOf: ["employee.update", "leave.approve", "regularization.approve", "compoff.approve", "timesheet.approve"],
       },
       { title: "Notifications", href: "/notifications", icon: Bell },
     ],
@@ -41,6 +41,7 @@ export const NAV: NavGroup[] = [
       { title: "My profile", href: "/me/profile", icon: UserRound, requiresEmployee: true },
       { title: "My documents", href: "/me/documents", icon: FileText, requiresEmployee: true },
       { title: "My attendance", href: "/me/attendance", icon: Fingerprint, requiresEmployee: true },
+      { title: "My timesheets", href: "/me/timesheets", icon: ClipboardClock, requiresEmployee: true },
       { title: "My leave", href: "/me/leave", icon: CalendarDays, requiresEmployee: true },
       { title: "My comp-off", href: "/me/comp-off", icon: Gift, requiresEmployee: true },
     ],
@@ -60,6 +61,9 @@ export const NAV: NavGroup[] = [
       { title: "Today", href: "/time/attendance", icon: UserRoundCheck, anyOf: ["attendance.view.all", "regularization.approve"] },
       { title: "Muster roll", href: "/time/muster", icon: Grid3x3, anyOf: ["attendance.view.all", "regularization.approve"] },
       { title: "Shifts", href: "/time/shifts", icon: Clock, anyOf: ["shift.manage"] },
+      { title: "Projects", href: "/time/projects", icon: FolderKanban, anyOf: ["project.manage", "timesheet.view.all"] },
+      { title: "Clients", href: "/time/clients", icon: Handshake, anyOf: ["project.manage"] },
+      { title: "Task categories", href: "/time/categories", icon: Shapes, anyOf: ["project.manage"] },
     ],
   },
   {
