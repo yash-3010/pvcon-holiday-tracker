@@ -104,10 +104,20 @@ pino · nodemailer · vitest · Playwright. Later phases add @react-pdf/renderer
   - Balances are only ever `SUM(delta)` of `leave_ledger` per (employee, type, leave year). Never store a balance.
   - Amounts are days in steps of 0.5, from the pure helpers in `src/lib/leave.ts` (`countLeaveDays`, `accrualCredit`,
     `proRatedQuota`), which client previews use too.
-  - A request belongs to one leave year. Approvals go through `canDecideLeave` (never one's own leave).
+  - A request belongs to one leave year. Approvals go through `canDecideLeave` (never one's own leave). Comp-off and
+    regularization approvals use the same routing (`src/server/modules/approvals/routing.ts`).
+  - Comp-off (CO) availability comes from `comp_off_lots` (`compOffAvailable`), consumed FIFO by expiry, not from the ledger.
   - Weekly offs come from `weeklyOffsForEmployee()`, and holidays from `holidaysForEmployee()`, never from settings or
     tables directly.
   - Attendance hooks (`onLeaveChanged`, `onHolidayChanged`) are called inside the transaction.
+- **Attendance**
+  - Punches are UTC instants. A punch's attendance date and minutes are local to `locale.timezone`
+    (`dateInTimeZone`, `minutesInZone`, `zonedInstant`). Shift times are local `HH:MM` and never cross midnight.
+  - `recomputeAttendance` (and `fillMissingAttendance` / `recomputeDateForAll`, which use it) is the only writer of
+    `attendance_days` status. Overrides only set the `override_*` columns, then recompute.
+  - A `locked` day (payroll approved) is never rewritten, corrected or overridden.
+  - Shifts come from `shiftForEmployee()` (the default shift when none is assigned). Shift changes rebuild today only.
+  - Today's punch-based status is provisional (`isProvisional`). Read models never write, and future days are never stored.
 - **Sensitive employee data**
   - Bank account and ID numbers are stored with `sealBank()` and shown with `bankView(source, reveal)`
     (`src/server/modules/employees/sensitive.ts`). `reveal` only for `employee.sensitive.view`.
@@ -155,8 +165,12 @@ pino · nodemailer · vitest · Playwright. Later phases add @react-pdf/renderer
 - Reference the old implementation with `git show 489c251:<path>` (e.g. `src/lib/leaves.ts`, `src/db/schema.ts`).
   A fresh clone of this branch needs `git fetch origin main` first. The old schema is also in `tests/fixtures/legacy-holiday-tracker.sql`.
 - The e2e server runs `next dev` on port 3100 and shares `.next` with your dev server. Stop `npm run dev` first.
-- E2E helpers live in `tests/e2e/helpers.ts` (`signIn`, `changePassword`, `signInAsAdmin`). In dev mode the page also
-  has an "Open Next.js Dev Tools" button, so match short button names exactly (`{ name: "Next", exact: true }`).
+- E2E helpers live in `tests/e2e/helpers.ts` (`signIn`, `changePassword`, `signInAsAdmin`, `addEmployee`). In dev mode the
+  page also has an "Open Next.js Dev Tools" button, so match short button names exactly (`{ name: "Next", exact: true }`).
+- E2E specs run alphabetically and share one database. `auth.spec.ts` must run first because it changes the seed admin
+  password, so name new specs to sort after it.
+- The login limiter allows 20 sign-ins per 15 minutes per client IP, and a password change signs in again. Give each
+  spec its own address with `test.use(clientIp(n))`, and pass it to any `browser.newContext()` too.
 
 ## Environment
 

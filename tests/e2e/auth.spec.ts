@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, SEED_PASSWORD, changePassword, signIn } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, SEED_PASSWORD, changePassword, clientIp, signIn } from "./helpers";
+
+test.use(clientIp(1));
 
 const EMPLOYEE_EMAIL = "test.employee@pvcon.in";
 const EMPLOYEE_PASSWORD = "Empl0yee-Strong-Pass";

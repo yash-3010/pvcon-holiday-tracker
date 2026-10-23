@@ -40,7 +40,7 @@ export async function signInAsAdmin(page: Page) {
     .waitFor()
     .then(() => "limited" as const, () => "timeout" as const);
   const outcome = await Promise.race([home, wrong, limited]);
-  if (outcome === "limited") throw new Error("Sign-in rate limit hit: give this spec its own clientIp() (see below).");
+  if (outcome === "limited") throw new Error("Sign-in rate limit hit: give this spec its own clientIp().");
   if (outcome === "wrong") {
     await signIn(page, ADMIN_EMAIL, SEED_PASSWORD);
     await changePassword(page, SEED_PASSWORD, ADMIN_PASSWORD);

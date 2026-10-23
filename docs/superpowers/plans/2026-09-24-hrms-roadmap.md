@@ -29,7 +29,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 | 0B Foundation — UI, auth pages, e2e | `2026-09-24-phase-0b-foundation-ui.md` | ☑ done (deb1b70) |
 | 1 Core HR | `2026-09-25-phase-1-core-hr.md` | ☑ done (049b86d) |
 | 2 Leave, holidays, legacy migration | `2026-10-23-phase-2-leave-holidays.md` | ☑ done (05b006a) |
-| 3 Attendance + comp-off | `2026-10-24-phase-3-attendance-compoff.md` | ◐ in progress (plan written) |
+| 3 Attendance + comp-off | `2026-10-24-phase-3-attendance-compoff.md` | ☑ done (f3684ce) |
 | 4 Timesheets | to be written | ☐ not started |
 | 5 Payroll + payslips | to be written | ☐ not started |
 | 6 Insight, notifications, polish, deploy | to be written | ☐ not started |
@@ -114,8 +114,8 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
     - Carry-forward is posted as a pair (−c out of the closed year, +c into the next), so a closed year nets to zero.
     - The excess of encashable types lapses until Phase 5 adds encashment.
     - Comp-off is skipped; its lots expire in Phase 3.
-28. **Weekly offs** come from `attendance.weeklyOffs` (default Sat/Sun, edited on Settings → Leave) until Phase 3 shifts.
-    Code reads them only through `weeklyOffsForEmployee` / `companyWeeklyOffs`.
+28. **Weekly offs** belong to shifts since Phase 3 (see 35). Code reads them only through `weeklyOffsForEmployee` /
+    `companyWeeklyOffs`.
 29. **Holidays.**
     - The optional-holiday quota is per calendar year; a year with no config allows 0 picks.
     - Picks lock once the date passes.
@@ -131,9 +131,44 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
     - Optional picks alone don't count, and picks of admins without a record are dropped and reported.
     - Inactive users become disabled logins and exited employees.
     - Grants follow each year's old policy without pro-rating, to match the old balances.
-    - Attendance backfill (§8 step 7) moves to Phase 3; the default shift and payroll components are seeded in Phases 3 and 5.
+    - Attendance for the history (§8 step 7) is computed by the migration since Phase 3, from the first joining date to
+      today, on a default shift seeded in auto mode. Payroll components are seeded in Phase 5.
 33. **Job run keys may read settings**: `JobDefinition.runKey(now, timeZone, db)`, so `leave:year-end` keys on the leave
     year being closed.
+34. **Shifts don't cross midnight.** The end must be after the start, and the automatic clock-out at or after the end.
+35. **Shifts own the weekly offs and the attendance mode.**
+    - `attendance.weeklyOffs` only seeds the first shift; Settings → Leave keeps just the leave-year month.
+    - Until a shift is seeded, a virtual default (id 0, never stored) applies, so reads never write. The seed creates
+      "General" 09:30–18:30; the legacy migration creates it in auto mode.
+    - `employees.shift_id` has no `ON DELETE`: shifts are archived, never deleted. The default shift and shifts with
+      current employees can't be archived.
+36. **Shift changes apply from today.** Changing the default shift, editing a shift or assigning employees rebuilds
+    today's row only. Shifts aren't versioned, so a later recompute of an earlier day (leave, a correction, an override)
+    uses the employee's current shift.
+37. **Corrections replace punches.** An approved regularization's punches supersede the day's other punches; a second
+    approval for the same day replaces the first one's.
+38. **Today is provisional.** Today's punch-based status (present, half day, absent) is shown as in progress and not
+    counted until the day closes. Future days are never stored. Read models never write.
+39. **A forgotten session** closes at its day's automatic clock-out time on the next clock-in, or in the nightly close.
+40. **The nightly close heals gaps.** `attendance:close-day` also computes any of the 34 days before yesterday that have no
+    row (a missed run, a back-dated joiner). Exited employees count only up to their last working day; migrated
+    inactive accounts, which have none, get no attendance.
+41. **`half_leave` keeps the worked minutes.** Phase 5 decides the loss of pay for an unworked other half.
+42. **Comp-off balances come from lots, not the ledger.**
+    - Leave checks and FIFO consumption use lots still valid on the leave's start date, earliest expiry first.
+    - The credit is posted in the leave year of the approval date, so work approved after a year end is still usable.
+    - Year end carries the active lots' remaining days into the next year and lapses the rest; expiry lapses a lot
+      exactly once and warns 7 days ahead.
+43. **Comp-off payout** claims are approved with `resolution = 'payout'` and no lot; Phase 5 pays them.
+44. **Shared approval routing** (`src/server/modules/approvals/routing.ts`): leave, comp-off and regularization use
+    the same rule (the right permission, plus org-wide viewing or a manager above), and self-approval is refused.
+45. **No self-service for admins.** HR can't override their own attendance (`SELF_OVERRIDE`) or grant themselves
+    comp-off (`SELF_ADJUST`). Grants refuse future days and days outside employment.
+46. **Managers see their team's attendance.** `regularization.approve` holders get Today and the Muster roll for their
+    reporting tree, read-only; overrides need `attendance.manage`.
+47. **E2E sign-ins.** The login limiter allows 20 sign-ins per 15 minutes per client IP, and a password change signs in
+    again. Each spec sends its own address (`test.use(clientIp(n))` from `tests/e2e/helpers.ts`). The Phase 3 spec is
+    `time-attendance.spec.ts`: spec files run alphabetically, and `auth.spec.ts` must run first.
 
 ## Cross-phase integration map
 
@@ -147,9 +182,11 @@ Build each phase so these seams exist. Later phases consume them.
 | Phase 2 leave | approved `leave_requests` (status, days, halves, `is_lop` type) + `onLeaveChanged(tx, employeeId, from, to)` in `attendance/hooks.ts` | attendance (3), timesheets (4), payroll LOP (5) |
 | Phase 2 leave | `postLedger`, `balanceOf`, `syncEntitlements`, `canDecideLeave`, the CO type (`compOffType`) | comp-off credits/FIFO (3), encashment (5) |
 | Phase 2 holidays | `holidaysForEmployee(db, employeeId, from, to)`, `holidayDatesForEmployee`, `onHolidayChanged(tx, date)`; `weeklyOffsForEmployee` in `attendance/calendar.ts` | attendance, leave day count, timesheets, payroll working days |
-| Phase 3 attendance | `attendance_days` rows + `recomputeAttendance(db, employeeId, from, to)` | comp-off (3), timesheet reconciliation (4), payroll (5), reports (6) |
-| Phase 3 comp-off | CO leave type + `comp_off_lots` FIFO consume/restore on leave approve/cancel | leave (2 hooks), payroll payout (5) |
-| Phase 5 payroll | approval locks `attendance_days.locked` for period | attendance edits (3) must respect lock |
+| Phase 3 attendance | `attendance_days` rows (`isProvisional` for today) + `recomputeAttendance(db, employeeId, from, to, { now })`, `fillMissingAttendance(db, from, to)`; payroll should fill and recompute the unlocked days of a period before reading it | comp-off (3), timesheet reconciliation (4), payroll (5), reports (6) |
+| Phase 3 attendance | `shiftForEmployee`, `shiftRules`, `weeklyOffsForEmployee` (shift-based) | timesheets available hours (4), payroll working days (5) |
+| Phase 3 comp-off | CO leave type + `comp_off_lots` FIFO consume/restore on leave approve/cancel; `compOffAvailable(db, employeeId, onDate)` | leave (2 hooks), encashment (5) |
+| Phase 3 comp-off | approved claims with `resolution = 'payout'` (no lot) | payroll payout (5) |
+| Phase 5 payroll | approval sets `attendance_days.locked` for the period; recompute, regularization, overrides and leave hooks already skip locked days | attendance edits (3) |
 | Phase 0 | `notify()`, `writeAudit()`, `defineAction`, `runJob()`, `saveUpload()`, `canAccessFile()`, `getSetting()` | all phases |
 
 Phase 2 is built before Phase 3, so it defines an attendance-recompute hook interface that is a no-op until

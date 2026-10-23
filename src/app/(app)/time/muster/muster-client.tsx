@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUSES, WORK_MODE_LABELS, type AttendanceStatus } from "@/lib/attendance";
-import { formatDate, formatHm, formatMinutes } from "@/lib/dates";
+import { formatDate, formatMinutes } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { AttendanceDayDetail, MusterRoll } from "@/server/modules/attendance/queries";
 import { attendanceDayAction, setOverrideAction } from "./actions";

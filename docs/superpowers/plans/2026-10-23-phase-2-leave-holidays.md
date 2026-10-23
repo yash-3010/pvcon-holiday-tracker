@@ -154,7 +154,7 @@ These are the five failure modes most likely to hurt a real user. Each one has a
 - `getSetting(db, "attendance").weeklyOffs` defaults to `[0, 6]` for an existing stored row without the key.
   This one goes in `tests/integration/settings.test.ts`.
 
-- [ ] Write the failing tests → implement → pass → `npm run typecheck` → commit `feat(leave): add leave constants, validation schemas and weekly-off setting`
+- [x] Write the failing tests → implement → pass → `npm run typecheck` → commit `feat(leave): add leave constants, validation schemas and weekly-off setting`
 
 ---
 
@@ -204,7 +204,7 @@ These are the five failure modes most likely to hurt a real user. Each one has a
   - disjoint ranges → false;
   - a multi-day range ending `first_half` vs a request starting `second_half` on that date → false.
 
-- [ ] Failing tests → implement → pass → commit `feat(leave): add leave year, accrual and day-counting math`
+- [x] Failing tests → implement → pass → commit `feat(leave): add leave year, accrual and day-counting math`
 
 ---
 
@@ -238,7 +238,7 @@ These are the five failure modes most likely to hurt a real user. Each one has a
 **Tests:** the migration applies on a fresh DB. Each FK cascade behaves as declared (delete an employee → their ledger,
 requests and selections go; delete a holiday → its selections go). `(year, date)` is unique.
 
-- [ ] Failing test → schema → `npm run db:generate -- --name leave` → pass → commit `feat(db): add leave and holiday schema and migration`
+- [x] Failing test → schema → `npm run db:generate -- --name leave` → pass → commit `feat(db): add leave and holiday schema and migration`
 
 ---
 
@@ -278,7 +278,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - `isApplicable` with null and with a list.
 - `weeklyOffsForEmployee` follows the setting.
 
-- [ ] Commit `feat(leave): add leave types, defaults and attendance seams`
+- [x] Commit `feat(leave): add leave types, defaults and attendance seams`
 
 ---
 
@@ -329,7 +329,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - `balancesFor` splits the columns correctly after a taken + cancelled pair.
 - The employee create service grants CL for the current year.
 
-- [ ] Commit `feat(leave): add ledger, balances, entitlement sync and year close`
+- [x] Commit `feat(leave): add ledger, balances, entitlement sync and year close`
 
 ---
 
@@ -355,7 +355,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - `leave:year-end` at `2026-12-31T19:20:00Z` closes 2026 (key "2026"). Running it late on 15 January closes 2026 too.
 - With `yearStartMonth = 4`, a run on 1 April 2027 closes leave year 2026.
 
-- [ ] Commit `feat(leave): add accrual and year-end jobs`
+- [x] Commit `feat(leave): add accrual and year-end jobs`
 
 ---
 
@@ -442,7 +442,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - On-behalf skips notice and max-consecutive but not the balance check; it is approved immediately.
 - Bulk approve with one insufficient request: the others are approved and the failure is reported.
 
-- [ ] Commit `feat(leave): add leave requests with approvals, cancellation and routing`
+- [x] Commit `feat(leave): add leave requests with approvals, cancellation and routing`
 
 ---
 
@@ -492,7 +492,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - Copy skips 29 Feb and existing dates.
 - `onHolidayChanged` is called (spy).
 
-- [ ] Commit `feat(holidays): add holiday calendar, CSV import, year copy and optional picks`
+- [x] Commit `feat(holidays): add holiday calendar, CSV import, year copy and optional picks`
 
 ---
 
@@ -533,7 +533,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - Calendar masking for a peer vs the manager.
 - A peer cannot download an attachment; the manager can.
 
-- [ ] Commit `feat(leave): add leave read models and attachment access`
+- [x] Commit `feat(leave): add leave read models and attachment access`
 
 ---
 
@@ -615,7 +615,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - The script test: run `migrateLegacy` through the CLI entry against temp files. The source file's sha256 is unchanged,
   and a second run refuses the existing target.
 
-- [ ] Commit `feat(legacy): add holiday tracker migration with balance verification`
+- [x] Commit `feat(legacy): add holiday tracker migration with balance verification`
 
 ---
 
@@ -647,7 +647,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - Nav visibility per role.
 - The action saves, audits, and refuses the start month after a ledger row exists.
 
-- [ ] Commit `feat(leave): add leave navigation and leave settings`
+- [x] Commit `feat(leave): add leave navigation and leave settings`
 
 ---
 
@@ -662,7 +662,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
   Audited `leave_type.create|update|archive|restore` with a diff on update.
 - Tests: permission, audit, and the CO guard surfacing as `SYSTEM_TYPE`.
 
-- [ ] Commit `feat(leave): add leave types page`
+- [x] Commit `feat(leave): add leave types page`
 
 ---
 
@@ -678,7 +678,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
   (`holiday.create|update|delete|import|copy`, `holiday_year.update`).
 - Tests: permission, audit, and an all-or-nothing import result.
 
-- [ ] Commit `feat(holidays): add holiday calendar page`
+- [x] Commit `feat(holidays): add holiday calendar page`
 
 ---
 
@@ -707,7 +707,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
   - withdraw/cancel only for the owner;
   - the optional-pick limit surfaces.
 
-- [ ] Commit `feat(leave): add my leave page with apply, history and optional holidays`
+- [x] Commit `feat(leave): add my leave page with apply, history and optional holidays`
 
 ---
 
@@ -729,7 +729,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
   - `bulkApproveLeaveAction`: audits each approved id, and toasts "Approved N, M failed: …".
 - Tests: a manager approves in scope; out of scope → `FORBIDDEN`; bulk partial failure.
 
-- [ ] Commit `feat(approvals): add the leave approvals tab with bulk approve`
+- [x] Commit `feat(approvals): add the leave approvals tab with bulk approve`
 
 ---
 
@@ -743,7 +743,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - Audited `leave.cancel`, `leave.record`.
 - Tests: on-behalf creates an approved request with a ledger debit; a manager without `leave.adjust` cannot record or cancel.
 
-- [ ] Commit `feat(leave): add leave register and on-behalf recording`
+- [x] Commit `feat(leave): add leave register and on-behalf recording`
 
 ---
 
@@ -757,7 +757,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
   `leave.adjust` with the delta in the summary.
 - Tests: an adjustment changes the balance; the note is required; `leave.view.all` without `leave.adjust` cannot adjust.
 
-- [ ] Commit `feat(leave): add balance sheet, ledger drill-down and adjustments`
+- [x] Commit `feat(leave): add balance sheet, ledger drill-down and adjustments`
 
 ---
 
@@ -771,7 +771,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - Legend underneath. Empty state when the viewer has no team and is not org-wide.
 - Covered by `leave-queries` tests (Task 9) and the e2e smoke check; no action tests (read only).
 
-- [ ] Commit `feat(team): add team leave calendar`
+- [x] Commit `feat(team): add team leave calendar`
 
 ---
 
@@ -784,7 +784,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
 - For `leave.view.all`, add links to the register (filtered to the employee) and to balances.
 - Visible to anyone who can open the profile (Phase 1 rules).
 
-- [ ] Commit `feat(employees): show leave on the employee profile`
+- [x] Commit `feat(employees): show leave on the employee profile`
 
 ---
 
@@ -839,7 +839,7 @@ Run `npm run test:e2e` (all specs) and `npm run verify`.
   - default shift/components are seeded in Phases 3 and 5.
 - `isInScope` is true for org-wide viewers on their own record. Approval flows check `SELF_APPROVAL` explicitly.
 
-- [ ] Commit `test(e2e): cover leave apply, approval and cancellation`, then push `feat/hrms-overhaul`
+- [x] Commit `test(e2e): cover leave apply, approval and cancellation`, then push `feat/hrms-overhaul`
 
 ---
 

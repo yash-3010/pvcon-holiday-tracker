@@ -122,7 +122,7 @@
   - In IST, `2026-11-02T18:20:00Z` is 2026-11-02 at 23:50 (minute 1430), and `2026-11-02T18:40:00Z` is 2026-11-03 at
     00:10 (minute 10).
 
-- [ ] Commit `feat(dates): add time-zone conversion and minute helpers`
+- [x] Commit `feat(dates): add time-zone conversion and minute helpers`
 
 ### Task 2: Attendance constants, validation, settings
 
@@ -154,7 +154,7 @@
 - **Tests:** a shift whose end is before its start, half ≥ full, a regularization whose out is before its in, an override
   without a note.
 
-- [ ] Commit `feat(attendance): add attendance constants, validation and settings`
+- [x] Commit `feat(attendance): add attendance constants, validation and settings`
 
 ### Task 3: Pure attendance computation
 
@@ -193,7 +193,7 @@
 - **Tests:** one per precedence branch; auto mode; open session with `nowMinutes`; two half leaves; overtime on an off day;
   late within grace = 0; an override over leave.
 
-- [ ] Commit `feat(attendance): add punch pairing and daily attendance computation`
+- [x] Commit `feat(attendance): add punch pairing and daily attendance computation`
 
 ### Task 4: Schema and migration
 
@@ -224,7 +224,7 @@
 - `comp_off_consumptions`: id, `lot_id`, `leave_request_id`, `days`; index (`leave_request_id`).
 - **Tests:** tables exist; cascades; the partial unique claim index allows a new claim after a rejected one.
 
-- [ ] Commit `feat(db): add attendance and comp-off schema`
+- [x] Commit `feat(db): add attendance and comp-off schema`
 
 ### Task 5: Shifts and the calendar seam
 
@@ -249,7 +249,7 @@
   - archiving the default is refused;
   - leave day counting follows a Sunday-only shift.
 
-- [ ] Commit `feat(attendance): add shifts and the default shift`
+- [x] Commit `feat(attendance): add shifts and the default shift`
 
 ### Task 6: Punches
 
@@ -269,7 +269,7 @@
   - a punch at `2026-11-02T18:40:00Z` is dated 2026-11-03;
   - auto clock-out inserts at 23:30 IST (`18:00Z`).
 
-- [ ] Commit `feat(attendance): add clock in and clock out`
+- [x] Commit `feat(attendance): add clock in and clock out`
 
 ### Task 7: Recompute, hooks and overrides
 
@@ -294,7 +294,7 @@
   - a locked row survives a recompute;
   - an override wins and clearing it restores the computed status.
 
-- [ ] Commit `feat(attendance): recompute attendance from punches, leave and holidays`
+- [x] Commit `feat(attendance): recompute attendance from punches, leave and holidays`
 
 ### Task 8: Close-day job
 
@@ -308,7 +308,7 @@
 - **Tests:** run at `2026-11-07T19:00:00Z` (00:30 IST Sunday): it closes Saturday 11-07, auto clock-outs an open
   session, notifies a Saturday worker once, and a second run is skipped.
 
-- [ ] Commit `feat(attendance): add the nightly close-day job`
+- [x] Commit `feat(attendance): add the nightly close-day job`
 
 ### Task 9: Regularization
 
@@ -332,7 +332,7 @@
   - regularization punches supersede the day's web punches;
   - peer `FORBIDDEN`; `SELF_APPROVAL`.
 
-- [ ] Commit `feat(attendance): add regularization requests`
+- [x] Commit `feat(attendance): add regularization requests`
 
 ### Task 10: Comp-off claims and lots
 
@@ -365,7 +365,7 @@
   - approve → lot + credit (the CO balance is 1);
   - payout refused while disabled.
 
-- [ ] Commit `feat(compoff): add comp-off claims, approvals and lots`
+- [x] Commit `feat(compoff): add comp-off claims, approvals and lots`
 
 ### Task 11: Comp-off leave: FIFO consumption and restore
 
@@ -383,7 +383,7 @@
   - cancel restores both;
   - cancel after expiry lapses the restored days.
 
-- [ ] Commit `feat(compoff): consume comp-off lots first-expiring-first and restore them on cancel`
+- [x] Commit `feat(compoff): consume comp-off lots first-expiring-first and restore them on cancel`
 
 ### Task 12: Comp-off expiry and year-end
 
@@ -400,7 +400,7 @@
 - **Tests:** expiry once (a second run is skipped); the warning goes out 7 days ahead only; year-end carries an active
   lot's remaining days into the next leave year.
 
-- [ ] Commit `feat(compoff): expire lots and carry active comp-off across leave years`
+- [x] Commit `feat(compoff): expire lots and carry active comp-off across leave years`
 
 ### Task 13: Attendance read models
 
@@ -422,7 +422,7 @@
 - `employeeAttendanceSummary(db, employeeId, month)` (the profile tab).
 - **Tests:** scope of the board/muster (manager vs HR vs employee); live status for today; muster totals.
 
-- [ ] Commit `feat(attendance): add attendance and comp-off read models`
+- [x] Commit `feat(attendance): add attendance and comp-off read models`
 
 ### Task 14: Settings and navigation
 
@@ -442,7 +442,7 @@
   - Leave group: "Comp-off" `/leave/comp-off` (`leave.view.all`);
   - Approvals `anyOf` adds `regularization.approve` and `compoff.approve`.
 
-- [ ] Commit `feat(attendance): add attendance and comp-off settings and navigation`
+- [x] Commit `feat(attendance): add attendance and comp-off settings and navigation`
 
 ### Task 15: Clock card and My attendance
 
@@ -462,7 +462,7 @@
   - month summary.
 - Actions: `requestRegularizationAction`, `withdrawRegularizationAction`, `claimCompOffAction`, `withdrawCompOffClaimAction`.
 
-- [ ] Commit `feat(attendance): add the clock card and my attendance page`
+- [x] Commit `feat(attendance): add the clock card and my attendance page`
 
 ### Task 16: My comp-off
 
@@ -471,7 +471,7 @@
 - Available days with the next expiry; lots with earned/expiry/remaining/status; eligible days with Claim buttons;
   claims history.
 
-- [ ] Commit `feat(compoff): add my comp-off page`
+- [x] Commit `feat(compoff): add my comp-off page`
 
 ### Task 17: Approvals — Regularization and Comp-off tabs
 
@@ -483,7 +483,7 @@
   - Approve as leave, or as payout when enabled; Reject.
 - Actions audited `regularization.approve|reject`, `compoff.approve|reject`.
 
-- [ ] Commit `feat(approvals): add regularization and comp-off approval tabs`
+- [x] Commit `feat(approvals): add regularization and comp-off approval tabs`
 
 ### Task 18: Today board, muster roll, overrides
 
@@ -495,7 +495,7 @@
   - a cell opens a day dialog with punches and an override form (`attendance.manage`);
   - `setOverrideAction` audited `attendance.override`.
 
-- [ ] Commit `feat(attendance): add the today board, muster roll and overrides`
+- [x] Commit `feat(attendance): add the today board, muster roll and overrides`
 
 ### Task 19: Shifts page and assignment
 
@@ -509,7 +509,7 @@
   - this month's summary and recent days.
 - Actions audited `shift.create|update|archive|assign`.
 
-- [ ] Commit `feat(attendance): add shifts page and shift assignment`
+- [x] Commit `feat(attendance): add shifts page and shift assignment`
 
 ### Task 20: Comp-off admin
 
@@ -518,7 +518,7 @@
 - Tabs: claims (all statuses, filters), lots (active/expiring/expired), and a "Grant comp-off" sheet (`leave.adjust`).
 - `grantCompOffAction` audited `compoff.grant`.
 
-- [ ] Commit `feat(compoff): add comp-off administration`
+- [x] Commit `feat(compoff): add comp-off administration`
 
 ### Task 21: E2E, verification, documentation
 
@@ -561,4 +561,4 @@ Run `npm run test:e2e` and `npm run verify`.
 - Settings → Leave no longer edits weekly offs (shifts do).
 - Shift assignment lives on the profile Attendance tab and the Shifts page, not the Phase 1 job form.
 
-- [ ] Commit `test(e2e): cover clock-in, regularization and the comp-off flow`, then push
+- [x] Commit `test(e2e): cover clock-in, regularization and the comp-off flow`, then push
