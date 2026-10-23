@@ -1,6 +1,6 @@
 import { and, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
 import { computeAttendanceDay, pairPunches, type AttendanceStatus } from "@/lib/attendance";
-import { dateInTimeZone, dayOfWeek, eachDay, minutesInZone, type ISODate } from "@/lib/dates";
+import { addDays, dateInTimeZone, dayOfWeek, eachDay, minutesInZone, type ISODate } from "@/lib/dates";
 import { requestPortions, type LeaveHalf } from "@/lib/leave";
 import type { DbLike } from "@/server/db/client";
 import { nowIso } from "@/server/db/columns";
@@ -136,5 +136,48 @@ export function recomputeToday(db: DbLike, employeeIds: number[], opts: Recomput
   const today = dateInTimeZone(opts.now ?? new Date(), getSetting(db, "locale").timezone);
   let written = 0;
   for (const id of employeeIds) written += recomputeAttendance(db, id, today, today, opts).written;
+  return written;
+}
+
+/**
+ * Computes the days in [from, to] that have no row yet: a nightly run that never happened, someone added with an
+ * earlier joining date, or history from before attendance existed. Existing rows, locked or not, are left alone.
+ */
+export function fillMissingAttendance(db: DbLike, from: ISODate, to: ISODate, opts: RecomputeOptions = {}): number {
+  const today = dateInTimeZone(opts.now ?? new Date(), getSetting(db, "locale").timezone);
+  const end = to < today ? to : today;
+  if (from > end) return 0;
+  const people = db
+    .select({ id: employees.id, joined: employees.dateOfJoining, last: employees.lastWorkingDate })
+    .from(employees)
+    .where(
+      and(
+        lte(employees.dateOfJoining, end),
+        or(isNull(employees.lastWorkingDate), gte(employees.lastWorkingDate, from)),
+        inArray(employees.status, ["active", "on_notice", "exited"]),
+      ),
+    )
+    .all();
+  const existing = new Set(
+    db
+      .select({ employeeId: attendanceDays.employeeId, date: attendanceDays.date })
+      .from(attendanceDays)
+      .where(and(gte(attendanceDays.date, from), lte(attendanceDays.date, end)))
+      .all()
+      .map((r) => `${r.employeeId}:${r.date}`),
+  );
+  let written = 0;
+  for (const p of people) {
+    const start = from > p.joined ? from : p.joined;
+    const stop = p.last && p.last < end ? p.last : end;
+    const missing = start > stop ? [] : eachDay(start, stop).filter((d) => !existing.has(`${p.id}:${d}`));
+    // Recompute each run of consecutive missing days at once; runs never contain an existing row.
+    let runStart = 0;
+    for (let i = 1; i <= missing.length; i++) {
+      if (i < missing.length && missing[i] === addDays(missing[i - 1]!, 1)) continue;
+      written += recomputeAttendance(db, p.id, missing[runStart]!, missing[i - 1]!, opts).written;
+      runStart = i;
+    }
+  }
   return written;
 }

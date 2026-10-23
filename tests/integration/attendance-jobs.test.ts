@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { DB } from "@/server/db/client";
 import { attendanceDays, attendancePunches, notifications } from "@/server/db/schema";
@@ -33,9 +33,11 @@ describe("attendance:close-day", () => {
 
     expect(runJobByName(db, "attendance:close-day", AT)).toEqual({
       status: "succeeded",
-      detail: "Closed 2026-11-07: 1 automatic clock-out(s), 3 day(s) computed, 2 comp-off prompt(s)",
+      // The 34 days before yesterday had never been computed, so the job fills them too.
+      detail: "Closed 2026-11-07: 1 automatic clock-out(s), 3 day(s) computed, 102 missing earlier day(s) filled, 2 comp-off prompt(s)",
     });
-    const asSaturday = (id: number) => db.select().from(attendanceDays).where(eq(attendanceDays.employeeId, id)).get();
+    const asSaturday = (id: number) =>
+      db.select().from(attendanceDays).where(and(eq(attendanceDays.employeeId, id), eq(attendanceDays.date, "2026-11-07"))).get();
     expect(asSaturday(asha.id)).toMatchObject({ status: "weekly_off", offDayWorked: true, workedMinutes: 510 });
     // Ravi was clocked out automatically at 23:30 IST: 10:30 → 23:30.
     expect(asSaturday(ravi.id)).toMatchObject({ offDayWorked: true, workedMinutes: 780 });
@@ -43,6 +45,20 @@ describe("attendance:close-day", () => {
     expect(prompts.map((n) => n.userId).sort()).toEqual([asha.userId, ravi.userId].sort());
     expect(prompts[0]!.link).toBe("/me/attendance?month=2026-11");
     expect(runJobByName(db, "attendance:close-day", AT).status).toBe("skipped");
+  });
+
+  it("fills earlier days nobody computed, leaving computed and locked ones alone", () => {
+    const late = insertEmployee(db, { dateOfJoining: "2026-10-20" });
+    const future = insertEmployee(db, { dateOfJoining: "2026-11-09" });
+    db.insert(attendanceDays).values({ employeeId: late.id, date: "2026-11-02", status: "present", workedMinutes: 540, locked: true }).run();
+    expect(runJobByName(db, "attendance:close-day", AT).detail).toContain("17 missing earlier day(s) filled");
+    const rows = db.select().from(attendanceDays).where(eq(attendanceDays.employeeId, late.id)).all();
+    expect(rows.map((r) => r.date).sort()).toEqual(
+      Array.from({ length: 19 }, (_, i) => new Date(Date.UTC(2026, 9, 20 + i)).toISOString().slice(0, 10)),
+    );
+    expect(rows.find((r) => r.date === "2026-11-02")).toMatchObject({ status: "present", locked: true });
+    expect(rows.find((r) => r.date === "2026-11-02")!.workedMinutes).toBe(540);
+    expect(db.select().from(attendanceDays).where(eq(attendanceDays.employeeId, future.id)).all()).toEqual([]);
   });
 
   it("sends no prompts when comp-off is off", () => {
