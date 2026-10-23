@@ -30,7 +30,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 | 1 Core HR | `2026-09-25-phase-1-core-hr.md` | ☑ done (049b86d) |
 | 2 Leave, holidays, legacy migration | `2026-10-23-phase-2-leave-holidays.md` | ☑ done (05b006a) |
 | 3 Attendance + comp-off | `2026-10-24-phase-3-attendance-compoff.md` | ☑ done (f3684ce) |
-| 4 Timesheets | `2026-10-24-phase-4-timesheets.md` | ◐ in progress (plan written) |
+| 4 Timesheets | `2026-10-24-phase-4-timesheets.md` | ☑ done (ad47353) |
 | 5 Payroll + payslips | to be written | ☐ not started |
 | 6 Insight, notifications, polish, deploy | to be written | ☐ not started |
 
@@ -169,6 +169,28 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
 47. **E2E sign-ins.** The login limiter allows 20 sign-ins per 15 minutes per client IP, and a password change signs in
     again. Each spec sends its own address (`test.use(clientIp(n))` from `tests/e2e/helpers.ts`). The Phase 3 spec is
     `time-attendance.spec.ts`: spec files run alphabetically, and `auth.spec.ts` must run first.
+48. **Two timesheet reminder jobs** instead of one `timesheet:remind`: `timesheet:remind-employees` (Friday 16:00 IST)
+    and `timesheet:remind-approvers` (Monday 10:00 IST), each keyed on the week's Monday.
+49. **A timesheet week is saved whole.** Saving replaces the week's entries. A row is a (project, task category) pair;
+    its billable flag and note are stored on each of its entries. Rows already in a stored week stay allowed when the
+    project closes or the employee leaves it, and archived categories likewise.
+50. **Who logs to what.** Internal projects (no client) are open to everyone; client projects to their active members.
+    A project takes time only while active and inside its start and end dates. The seed adds an "Internal" (`INT`)
+    project and default task categories.
+51. **Timesheet decisions.** Rejecting needs a reason. Approval is final in this phase (no reopen). Employees can
+    withdraw a submitted week until someone decides.
+52. **Timesheet dates.** No time after today, before joining or after the last working day. An empty week can be
+    submitted only when it offered no working hours. A timer started inside the week blocks submitting it.
+53. **The timer** is one per employee, rounds to the nearest quarter hour (under 8 minutes adds nothing), and belongs to
+    its start date, where it stops counting at local midnight. Stopping into a locked week is refused; the timer can then
+    be discarded.
+54. **Available hours** per working day are the shift length less the break (half on a half-day leave). Utilization =
+    logged ÷ available; billable share = billable ÷ logged.
+55. **Attendance reconciliation** shows worked time on punch-mode shifts only; a past day is flagged when logged and
+    worked differ by more than an hour.
+56. **Projects.** Budget burn counts submitted and approved hours, with drafts shown apart. `project.manage` edits
+    projects, clients and categories; `timesheet.view.all` reads projects. The project manager field is informational.
+    The profile Timesheets tab shows to the employee, managers above them and `timesheet.view.all`.
 
 ## Cross-phase integration map
 
@@ -186,6 +208,7 @@ Build each phase so these seams exist. Later phases consume them.
 | Phase 3 attendance | `shiftForEmployee`, `shiftRules`, `weeklyOffsForEmployee` (shift-based) | timesheets available hours (4), payroll working days (5) |
 | Phase 3 comp-off | CO leave type + `comp_off_lots` FIFO consume/restore on leave approve/cancel; `compOffAvailable(db, employeeId, onDate)` | leave (2 hooks), encashment (5) |
 | Phase 3 comp-off | approved claims with `resolution = 'payout'` (no lot) | payroll payout (5) |
+| Phase 4 timesheets | `workCalendar(db, employeeId, from, to)` / `availableMinutes` (`timesheets/availability.ts`), `utilization()` (`src/lib/timesheets.ts`), `timesheet_entries` joined with `timesheets.status` (approved = final), `projectDetail` budget burn | reports and dashboards (6) |
 | Phase 5 payroll | approval sets `attendance_days.locked` for the period; recompute, regularization, overrides and leave hooks already skip locked days | attendance edits (3) |
 | Phase 0 | `notify()`, `writeAudit()`, `defineAction`, `runJob()`, `saveUpload()`, `canAccessFile()`, `getSetting()` | all phases |
 

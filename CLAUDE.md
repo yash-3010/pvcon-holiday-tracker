@@ -118,6 +118,11 @@ pino · nodemailer · vitest · Playwright. Later phases add @react-pdf/renderer
   - A `locked` day (payroll approved) is never rewritten, corrected or overridden.
   - Shifts come from `shiftForEmployee()` (the default shift when none is assigned). Shift changes rebuild today only.
   - Today's punch-based status is provisional (`isProvisional`). Read models never write, and future days are never stored.
+- **Timesheets**
+  - Weeks run Monday–Sunday and are named by their Monday. Durations are minutes in quarter hours (`src/lib/timesheets.ts`).
+  - A row is (project, task category); saving replaces the week's entries. Only `draft` and `rejected` weeks change.
+  - Who may log to a project comes from `allowedProjects()`; available hours from `workCalendar()` /
+    `availableMinutes()`, never from the shift or leave tables directly.
 - **Sensitive employee data**
   - Bank account and ID numbers are stored with `sealBank()` and shown with `bankView(source, reveal)`
     (`src/server/modules/employees/sensitive.ts`). `reveal` only for `employee.sensitive.view`.

@@ -96,7 +96,7 @@
 - **Tests:** quarter rounding both ways, `formatHours`, a Monday check, each day kind, utilization with zero
   available/logged, timer rounding at 7, 8, 22, 23 minutes.
 
-- [ ] Commit `feat(timesheets): add timesheet constants and utilization math`
+- [x] Commit `feat(timesheets): add timesheet constants and utilization math`
 
 ### Task 2: Validation schemas
 
@@ -115,7 +115,7 @@
 - `bulkApproveTimesheetsSchema`: `timesheetIds` (1–100), `note` optional.
 - **Tests:** a Sunday `weekStart`, a 20-minute cell, duplicate rows, a reject without a note, end before start.
 
-- [ ] Commit `feat(timesheets): add timesheet validation schemas`
+- [x] Commit `feat(timesheets): add timesheet validation schemas`
 
 ### Task 3: Schema and migration
 
@@ -135,7 +135,7 @@
 - `running_timers`: `employee_id` PK (cascade), `project_id`, `task_category_id`, `notes`, `started_at` (UTC ISO).
 - **Tests:** tables exist; the unique week and entry keys; deleting a timesheet cascades its entries.
 
-- [ ] Commit `feat(db): add timesheet schema`
+- [x] Commit `feat(db): add timesheet schema`
 
 ### Task 4: Clients, projects, members, categories
 
@@ -155,7 +155,7 @@
 - **Tests:** duplicates refused case-insensitively; archiving a client with an active project refused; re-adding a
   removed member reactivates them; the seed runs twice without duplicates.
 
-- [ ] Commit `feat(projects): add clients, projects, members and task categories`
+- [x] Commit `feat(projects): add clients, projects, members and task categories`
 
 ### Task 5: Availability calendar
 
@@ -168,7 +168,7 @@
 - **Tests:** a Mon–Fri week on the General shift is 5 × 480; a holiday and a half-day leave take 480 and 240 off; a
   Sunday-only shift makes Saturday a working day; a joiner on Wednesday has 3 working days.
 
-- [ ] Commit `feat(timesheets): add the work calendar for available hours`
+- [x] Commit `feat(timesheets): add the work calendar for available hours`
 
 ### Task 6: Saving a week
 
@@ -190,7 +190,7 @@
   project already in the week can still be saved; a future date refused; 25 h on a day refused; a submitted week
   refused; a leave-day warning is returned.
 
-- [ ] Commit `feat(timesheets): save weekly timesheet entries`
+- [x] Commit `feat(timesheets): save weekly timesheet entries`
 
 ### Task 7: Submit, withdraw, approve, reject
 
@@ -212,7 +212,7 @@
   empty; the manager approves, a peer cannot, nobody approves their own; a rejected week is editable again; approved
   is locked; bulk approve reports failures.
 
-- [ ] Commit `feat(timesheets): submit, approve and reject timesheets`
+- [x] Commit `feat(timesheets): submit, approve and reject timesheets`
 
 ### Task 8: Running timer
 
@@ -231,7 +231,7 @@
 - **Tests:** 1 h 07 m adds 60; a timer started at 23:30 and stopped next morning adds 30 to the start date; a second
   start is refused; stopping into a submitted week is refused.
 
-- [ ] Commit `feat(timesheets): add the running timer`
+- [x] Commit `feat(timesheets): add the running timer`
 
 ### Task 9: Read models
 
@@ -255,7 +255,7 @@
 - **Tests:** a virtual draft for an unsaved week; variance flags a day 2 h short; auto-mode days have no attendance
   reference; the manager's queue holds only their team.
 
-- [ ] Commit `feat(timesheets): add timesheet read models`
+- [x] Commit `feat(timesheets): add timesheet read models`
 
 ### Task 10: Reminder jobs
 
@@ -269,7 +269,7 @@
     with the count (link `/approvals?tab=timesheets`).
 - **Tests:** submitted and all-leave weeks get no reminder; one notification per approver; both run once per week.
 
-- [ ] Commit `feat(timesheets): add timesheet reminder jobs`
+- [x] Commit `feat(timesheets): add timesheet reminder jobs`
 
 ### Task 11: Navigation, clients and categories pages
 
@@ -282,7 +282,7 @@
   - Approvals `anyOf` adds `timesheet.approve`.
 - Clients and categories: DataTable + create/edit sheet + archive/restore; actions audited `client.*`, `category.*`.
 
-- [ ] Commit `feat(projects): add clients and task categories pages`
+- [x] Commit `feat(projects): add clients and task categories pages`
 
 ### Task 12: Projects pages
 
@@ -295,7 +295,7 @@
   remove (deactivate). Read-only for `timesheet.view.all` without `project.manage`.
 - Actions audited `project.create|update`, `project.members`.
 
-- [ ] Commit `feat(projects): add projects and project detail pages`
+- [x] Commit `feat(projects): add projects and project detail pages`
 
 ### Task 13: My timesheets and the week grid
 
@@ -312,7 +312,7 @@
 - Actions: `saveWeekAction`, `submitWeekAction`, `withdrawWeekAction`, `startTimerAction`, `stopTimerAction`,
   `discardTimerAction` (audited `timesheet.save|submit|withdraw|timer`).
 
-- [ ] Commit `feat(timesheets): add my timesheets and the weekly grid`
+- [x] Commit `feat(timesheets): add my timesheets and the weekly grid`
 
 ### Task 14: Approvals — Timesheets tab
 
@@ -323,7 +323,7 @@
 - Actions `decideTimesheetAction`, `bulkApproveTimesheetsAction`, `timesheetDetailAction` (read-only, not audited);
   decisions audited `timesheet.approve|reject`.
 
-- [ ] Commit `feat(approvals): add the timesheets approval tab`
+- [x] Commit `feat(approvals): add the timesheets approval tab`
 
 ### Task 15: Profile tab and dashboard card
 
@@ -332,7 +332,7 @@
 - Profile Timesheets tab (self, managers above, `timesheet.view.all`): the last 8 weeks.
 - Dashboard: "This week" card for employees: status, logged vs available, a link to the week.
 
-- [ ] Commit `feat(timesheets): add the profile timesheets tab and dashboard card`
+- [x] Commit `feat(timesheets): add the profile timesheets tab and dashboard card`
 
 ### Task 16: E2E, verification, documentation
 
