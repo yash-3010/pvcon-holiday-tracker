@@ -64,7 +64,7 @@ describe("my attendance month", () => {
     expect(byDate["2026-11-03"]).toMatchObject({ status: "present", workedMinutes: 540, canRegularize: true });
     expect(byDate["2026-11-03"]!.punches.map((p) => [p.time, p.direction])).toEqual([["09:30", "in"], ["18:30", "out"]]);
     expect(byDate["2026-11-04"]).toMatchObject({ status: "absent", canRegularize: true });
-    expect(byDate["2026-11-07"]).toMatchObject({ status: "weekly_off", offDayWorked: true, compOff: { eligibleDays: 1, claim: null } });
+    expect(byDate["2026-11-07"]).toMatchObject({ status: "weekly_off", offDayWorked: true, compOff: { eligibleDays: 1, claim: null, canClaim: true } });
     expect(byDate["2026-11-10"]).toMatchObject({ isToday: true, workedMinutes: 120, canRegularize: false });
     expect(byDate["2026-11-11"]).toMatchObject({ isFuture: true, status: null, canRegularize: false });
     expect(month.summary).toMatchObject({ present: 1, absent: 4, holiday: 1, weekly_off: 3 });

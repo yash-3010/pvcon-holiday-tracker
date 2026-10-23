@@ -50,7 +50,7 @@ export interface MyAttendanceDay {
   punches: { time: string; direction: PunchDirection; source: PunchSource; workMode: WorkMode }[];
   regularization: { id: number; status: string; requestedIn: number; requestedOut: number } | null;
   canRegularize: boolean;
-  compOff: { eligibleDays: 0 | 0.5 | 1; claim: { id: number; status: string } | null } | null;
+  compOff: { eligibleDays: 0 | 0.5 | 1; claim: { id: number; status: string } | null; canClaim: boolean } | null;
 }
 
 /** The employee's month (spec §5.2): one entry per day with what happened and what they can still do about it. */
@@ -149,7 +149,15 @@ export function myAttendanceMonth(
       regularization: reg,
       canRegularize:
         employed && date < today && diffDays(date, today) <= windowDays && !row?.locked && reg?.status !== "pending",
-      compOff: compOffOn.enabled && (eligibleDays > 0 || claim) ? { eligibleDays, claim } : null,
+      compOff:
+        compOffOn.enabled && (eligibleDays > 0 || claim)
+          ? {
+              eligibleDays,
+              claim,
+              canClaim:
+                eligibleDays > 0 && diffDays(date, today) <= compOffOn.claimWindowDays && (!claim || claim.status === "rejected" || claim.status === "withdrawn"),
+            }
+          : null,
     };
   });
   return { days, summary };

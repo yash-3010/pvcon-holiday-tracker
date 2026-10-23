@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ClockCard } from "@/components/attendance/clock-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { ROLE_LABELS } from "@/lib/auth/permissions";
 import { formatDate, todayInTimeZone } from "@/lib/dates";
 import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
+import { clockCardFor } from "@/server/modules/attendance/clock-card";
 import { unreadCount } from "@/server/modules/notifications/service";
 import { getSetting } from "@/server/modules/settings/service";
 
@@ -28,6 +30,7 @@ export default async function DashboardPage() {
   const shortcuts = visibleNav(user.permissions, { hasEmployee: user.employeeId !== null })
     .flatMap((g) => g.items)
     .filter((i) => i.href !== "/");
+  const clock = user.employeeId !== null ? clockCardFor(db, user.employeeId, new Date()) : null;
 
   return (
     <>
@@ -36,6 +39,7 @@ export default async function DashboardPage() {
         description={formatDate(todayInTimeZone(timezone), { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
       />
       <div className="grid gap-4 md:grid-cols-3">
+        {clock && <ClockCard key={clock.renderedAt} {...clock} />}
         <Card>
           <CardHeader>
             <CardDescription>Signed in as</CardDescription>
