@@ -33,7 +33,7 @@ describe("settings service", () => {
   it("defaults the weekly offs to Saturday and Sunday for attendance rows saved before they existed", () => {
     expect(getSetting(db, "attendance").weeklyOffs).toEqual([0, 6]);
     db.insert(companySettings).values({ key: "attendance", value: { defaultMode: "auto", regularizationWindowDays: 10 } }).run();
-    expect(getSetting(db, "attendance")).toEqual({ defaultMode: "auto", regularizationWindowDays: 10, weeklyOffs: [0, 6] });
+    expect(getSetting(db, "attendance")).toEqual({ defaultMode: "auto", regularizationWindowDays: 10, weeklyOffs: [0, 6], defaultShiftId: null });
   });
 
   it("falls back to defaults when the stored value is invalid", () => {
