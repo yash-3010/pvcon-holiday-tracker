@@ -47,6 +47,8 @@ export const componentSchema = z
     percent: z.number().min(0).max(100).transform((p) => Math.round(p * 100)).nullable(),
     formula: z.string().trim().max(500).nullable(),
     prorate: z.boolean(),
+    /** Part of the CTC (earnings and employer contributions): the balance component leaves room for it. */
+    inCtc: z.boolean(),
     round: z.enum(ROUND_MODES),
     showOnPayslip: z.boolean(),
     taxableLabel: optionalText(60),

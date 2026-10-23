@@ -7,7 +7,7 @@ const fieldErrors = (result: { success: boolean; error?: z.ZodError }) =>
 
 const component = {
   code: "PF", name: "Provident fund", kind: "deduction", calc: "formula", defaultValue: null, percentOf: null, percent: null,
-  formula: "min(BASIC, 15000) * 0.12", prorate: false, round: "nearest", showOnPayslip: true, taxableLabel: "",
+  formula: "min(BASIC, 15000) * 0.12", prorate: false, inCtc: false, round: "nearest", showOnPayslip: true, taxableLabel: "",
 };
 
 describe("componentSchema", () => {

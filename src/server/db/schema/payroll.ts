@@ -21,6 +21,8 @@ export const salaryComponents = sqliteTable("salary_components", {
   percent: integer("percent"),
   formula: text("formula"),
   prorate: integer("prorate", { mode: "boolean" }).notNull().default(true),
+  /** Part of the CTC: earnings and employer contributions marked so are what the `balance` component completes. */
+  inCtc: integer("in_ctc", { mode: "boolean" }).notNull().default(true),
   round: text("round", { enum: ROUND_MODES }).notNull().default("nearest"),
   showOnPayslip: integer("show_on_payslip", { mode: "boolean" }).notNull().default(true),
   taxableLabel: text("taxable_label"),

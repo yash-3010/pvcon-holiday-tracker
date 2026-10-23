@@ -193,6 +193,7 @@ CREATE TABLE `salary_components` (
 	`percent` integer,
 	`formula` text,
 	`prorate` integer DEFAULT true NOT NULL,
+	`in_ctc` integer DEFAULT true NOT NULL,
 	`round` text DEFAULT 'nearest' NOT NULL,
 	`show_on_payslip` integer DEFAULT true NOT NULL,
 	`taxable_label` text,
