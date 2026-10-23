@@ -83,7 +83,7 @@ const DEFAULTS: (typeof leaveTypes.$inferInsert)[] = [
     minNoticeDays: 0, attachmentAfterDays: 2, sortOrder: 2,
   },
   {
-    code: "LWP", name: "Leave without pay", color: "#64748b", paid: false, isLop: true, accrual: "none", annualQuota: 0,
+    code: "LWP", name: "Leave without pay", color: "#d97706", paid: false, isLop: true, accrual: "none", annualQuota: 0,
     allowNegative: true, sortOrder: 3,
   },
   {
