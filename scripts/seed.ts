@@ -1,6 +1,7 @@
 import "./_env";
 import { openDatabase } from "../src/server/db/client";
 import { seedDefaultChecklistTemplates } from "../src/server/modules/employees/checklists";
+import { seedDefaultLeaveTypes } from "../src/server/modules/leave/types";
 import { createUser, findUserByEmail, hashPassword } from "../src/server/modules/users/service";
 
 const file = process.env.DB_FILE ?? "./data/people.db";
@@ -11,6 +12,8 @@ async function main() {
   const { db } = openDatabase(file);
   const templates = db.transaction((tx) => seedDefaultChecklistTemplates(tx));
   console.log(templates ? `Added ${templates} default checklist template(s).` : "Checklist templates already present.");
+  const leaveTypes = db.transaction((tx) => seedDefaultLeaveTypes(tx));
+  console.log(leaveTypes ? `Added ${leaveTypes} default leave type(s).` : "Leave types already present.");
 
   if (findUserByEmail(db, email)) {
     console.log(`Super admin ${email} already exists in ${file}; nothing to do.`);
