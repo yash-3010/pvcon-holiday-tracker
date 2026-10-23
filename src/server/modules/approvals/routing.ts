@@ -15,6 +15,7 @@ export interface ApprovalRight {
 export const LEAVE_APPROVAL: ApprovalRight = { approve: "leave.approve", orgWide: "leave.view.all" };
 export const COMP_OFF_APPROVAL: ApprovalRight = { approve: "compoff.approve", orgWide: "leave.view.all" };
 export const REGULARIZATION_APPROVAL: ApprovalRight = { approve: "regularization.approve", orgWide: "attendance.view.all" };
+export const TIMESHEET_APPROVAL: ApprovalRight = { approve: "timesheet.approve", orgWide: "timesheet.view.all" };
 
 /** Never true for one's own requests, even for org-wide approvers. */
 export function canDecideFor(db: DbLike, user: ScopeUser, employeeId: number, right: ApprovalRight): boolean {
