@@ -220,7 +220,11 @@ export function withdrawCompOffClaim(db: DbLike, actor: SessionUser, claimId: nu
 
 /** HR grants comp-off without a claim (spec §5.5), e.g. for work recorded elsewhere. */
 export function grantCompOff(db: DbLike, actorUserId: number, input: CompOffGrantInput, { today }: { today: ISODate }): CompOffLotRow {
-  requireEmployee(db, input.employeeId);
+  const employee = requireEmployee(db, input.employeeId);
+  if (input.earnedOn > today) throw new DomainError("FUTURE_DATE", "Grant comp-off for work already done.", { earnedOn: ["Not yet"] });
+  if (input.earnedOn < employee.dateOfJoining || (employee.lastWorkingDate && input.earnedOn > employee.lastWorkingDate)) {
+    throw new DomainError("NOT_EMPLOYED", "The employee wasn't employed on that date.", { earnedOn: ["Not employed"] });
+  }
   if (addDays(input.earnedOn, getSetting(db, "compOff").expiryDays) < today) {
     throw new DomainError("ALREADY_EXPIRED", "Comp-off earned that long ago would already have expired.", { earnedOn: ["Too old"] });
   }

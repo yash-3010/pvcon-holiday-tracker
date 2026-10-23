@@ -95,7 +95,7 @@ export const compOffDecisionSchema = z.object({
 });
 
 export const compOffGrantSchema = z.object({
-  employeeId: id,
+  employeeId: z.number({ error: "Choose an employee" }).int().positive(),
   days: z.number().min(0.5).max(5).refine(isHalfStep, "Use steps of 0.5 days"),
   earnedOn: isoDate,
   note: z.string().trim().min(3, "Say why").max(300),
