@@ -90,11 +90,18 @@ pino · nodemailer · vitest · Playwright. Later phases add @react-pdf/renderer
   - Permissions and roles live in `src/lib/auth/permissions.ts`.
   - Pages call `requirePermission()` / `requireUser()` from `src/server/auth/session.ts`. Actions use `permission`.
   - Never trust client-side checks. The UI only hides things.
+  - Manager scope comes from reporting lines. `SessionUser.employeeId`/`hasReports` are loaded from the DB each request.
+    Use `isInScope(db, user, employeeId)` for approvals and team actions (self is never in scope) and `canViewEmployee`
+    for read access (`src/server/modules/employees/scope.ts`).
 - **Session truth comes from the DB.**
   - `getCurrentUser()` loads user + roles each request and compares `session_version` to the JWT.
   - Roles and `mustChangePassword` are never read from the JWT.
   - `src/proxy.ts` only makes the logged-in/out redirect (Next 16 renamed `middleware` → `proxy`).
 - **Money** is integer minor units (paise) everywhere, using `src/lib/money.ts`. Never use floats for stored amounts.
+- **Sensitive employee data**
+  - Bank account and ID numbers are stored with `sealBank()` and shown with `bankView(source, reveal)`
+    (`src/server/modules/employees/sensitive.ts`). `reveal` only for `employee.sensitive.view`.
+  - Never send `*Enc` columns to client components, and audit only masked views.
 - **Dates**
   - Calendar dates are `YYYY-MM-DD` strings. Use `src/lib/dates.ts` (pure UTC math).
   - **Never** call `toISOString()` on a local-midnight `Date`. That was the old app's IST off-by-one bug.
@@ -137,6 +144,8 @@ pino · nodemailer · vitest · Playwright. Later phases add @react-pdf/renderer
   - Keep a copy at `data/legacy/app.db` for development. The whole `data/` directory is gitignored.
 - Reference the old implementation with `git show 489c251:<path>` (e.g. `src/lib/leaves.ts`, `src/db/schema.ts`).
 - The e2e server runs `next dev` on port 3100 and shares `.next` with your dev server. Stop `npm run dev` first.
+- E2E helpers live in `tests/e2e/helpers.ts` (`signIn`, `changePassword`, `signInAsAdmin`). In dev mode the page also
+  has an "Open Next.js Dev Tools" button, so match short button names exactly (`{ name: "Next", exact: true }`).
 
 ## Environment
 

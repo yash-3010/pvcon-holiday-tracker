@@ -27,7 +27,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 |---|---|---|
 | 0A Foundation — backend | `2026-09-24-phase-0a-foundation-backend.md` | ☑ done (912fd4d) |
 | 0B Foundation — UI, auth pages, e2e | `2026-09-24-phase-0b-foundation-ui.md` | ☑ done (deb1b70) |
-| 1 Core HR | `2026-09-25-phase-1-core-hr.md` | ☐ not started (plan written) |
+| 1 Core HR | `2026-09-25-phase-1-core-hr.md` | ☑ done (049b86d) |
 | 2 Leave, holidays, legacy migration | to be written | ☐ not started |
 | 3 Attendance + comp-off | to be written | ☐ not started |
 | 4 Timesheets | to be written | ☐ not started |
@@ -70,6 +70,28 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
       (`/api/exports/*`, payslip PDFs) follow the same rule.
 12. **Unexpected action errors carry a reference.** `executeAction` logs `requestId` with the error and returns
     "… (Reference <id>)", so a user's toast can be matched to the log line (spec §9).
+13. **Profile change requests cover bank and ID numbers only.** Spec §5.1 lets employees edit their contact fields
+    (phone, personal email, address, emergency contact) directly, so the Phase 1 E2E uses a bank change instead of the
+    roadmap's phone-change example. A request carries only the values the employee typed; blank keeps the current value.
+    Nobody decides their own request (`SELF_APPROVAL`), and approvers need `employee.sensitive.view`.
+14. **Core HR schema additions** beyond spec §4.2: `checklist_templates.is_default`/`archived`, `employee_checklists.name`
+    and status `open|completed|cancelled`, `profile_change_requests.reason`/`requested_by`. `employees.shift_id` arrives
+    with `shifts` in Phase 3.
+15. **Team approval permissions.** Anyone with at least one current direct report receives `TEAM_APPROVAL_PERMISSIONS`
+    (leave, comp-off, regularization, timesheet and claim approval) for their reporting tree. Later approval flows must
+    check `isInScope(db, user, employeeId)`, which is never true for the user's own record.
+16. **Approvals inbox starts in Phase 1** with the Profile changes tab (nav item visible to `employee.update`).
+    Phase 2 adds the Leave tab and widens the nav item's `anyOf` to the approval permissions.
+17. **CSV import** creates employee records only: no logins, no onboarding checklists. Managers are matched by
+    `manager_email`; a new manager must be on an earlier row. Commit is all-or-nothing.
+18. **Photo upload** (`employees.photo_file_id`) is deferred to the Phase 6 polish pass; the directory shows initials.
+19. **Profile visibility.** Managers see Overview, Job, Documents, History and Checklists for their reporting tree;
+    Personal and Bank & IDs are limited to the employee and org-wide viewers (`employee.view`). Out-of-scope profile
+    URLs return 404.
+20. **Exit flow.** HR can withdraw a resignation (on notice → active, open offboarding checklist cancelled). The
+    `employee:lifecycle` job never disables the last active super admin's login.
+21. **Probation reminders** go to `employee.update` holders once per employee and probation end date, when it is
+    within the next 7 days.
 
 ## Cross-phase integration map
 
@@ -77,8 +99,9 @@ Build each phase so these seams exist. Later phases consume them.
 
 | Producer | Seam | Consumers |
 |---|---|---|
-| Phase 1 employees | `employees.user_id`, `reporting_manager_id`, `getReportingTree(db, employeeId)`, `SessionUser.employeeId` | every approval flow, scopes, dashboards |
+| Phase 1 employees | `employees.user_id`, `reporting_manager_id`, `getReportingTree(db, managerEmployeeId)`, `isInScope(db, user, employeeId)`, `canViewEmployee`, `SessionUser.employeeId`/`hasReports` (`src/server/modules/employees/scope.ts`) | every approval flow, scopes, dashboards |
 | Phase 1 employees | `employee_events` writer `recordEmployeeEvent()` | payroll salary revisions, exits |
+| Phase 0/1 users | `activeUserIdsWithPermission(db, permission)` (approver fallback, HR notifications) | every approval flow, reminders |
 | Phase 2 leave | `approved leave for (employee, date)` query + `onLeaveChanged` hook → attendance recompute | attendance (3), timesheets (4), payroll LOP (5) |
 | Phase 2 holidays | `holidaysForEmployee(db, employeeId, range)` (fixed + selected optional) | attendance, leave day count, timesheets, payroll working days |
 | Phase 3 attendance | `attendance_days` rows + `recomputeAttendance(db, employeeId, from, to)` | comp-off (3), timesheet reconciliation (4), payroll (5), reports (6) |

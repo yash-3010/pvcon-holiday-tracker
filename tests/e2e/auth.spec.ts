@@ -1,25 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, SEED_PASSWORD, changePassword, signIn } from "./helpers";
 
-const ADMIN_EMAIL = "admin@pvcon.in";
-const SEED_PASSWORD = "ChangeMe@2026";
-const ADMIN_PASSWORD = "Adm1n-Strong-Pass";
 const EMPLOYEE_EMAIL = "test.employee@pvcon.in";
 const EMPLOYEE_PASSWORD = "Empl0yee-Strong-Pass";
-
-async function signIn(page: Page, email: string, password: string) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-}
-
-async function changePassword(page: Page, current: string, next: string) {
-  await expect(page).toHaveURL(/\/change-password$/);
-  await page.getByLabel("Current password").fill(current);
-  await page.getByLabel("New password", { exact: true }).fill(next);
-  await page.getByLabel("Confirm new password").fill(next);
-  await page.getByRole("button", { name: "Update password" }).click();
-}
 
 test.describe.serial("authentication and user management", () => {
   let tempPassword = "";
