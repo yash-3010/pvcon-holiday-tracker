@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ClockCard } from "@/components/attendance/clock-card";
+import { WeekCard } from "@/components/timesheets/week-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { formatDate, todayInTimeZone } from "@/lib/dates";
 import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
 import { clockCardFor } from "@/server/modules/attendance/clock-card";
+import { weekCard } from "@/server/modules/timesheets/queries";
 import { unreadCount } from "@/server/modules/notifications/service";
 import { getSetting } from "@/server/modules/settings/service";
 
@@ -31,6 +33,7 @@ export default async function DashboardPage() {
     .flatMap((g) => g.items)
     .filter((i) => i.href !== "/");
   const clock = user.employeeId !== null ? clockCardFor(db, user.employeeId, new Date()) : null;
+  const week = user.employeeId !== null ? weekCard(db, user.employeeId, { today: todayInTimeZone(timezone) }) : null;
 
   return (
     <>
@@ -40,6 +43,7 @@ export default async function DashboardPage() {
       />
       <div className="grid gap-4 md:grid-cols-3">
         {clock && <ClockCard key={clock.renderedAt} {...clock} />}
+        {week && <WeekCard week={week} />}
         <Card>
           <CardHeader>
             <CardDescription>Signed in as</CardDescription>

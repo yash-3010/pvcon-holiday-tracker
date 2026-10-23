@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Landmark, Timer } from "lucide-react";
 import { EmployeeAttendanceTab } from "@/components/attendance/employee-attendance-tab";
+import { EmployeeTimesheetsTab } from "@/components/timesheets/employee-timesheets-tab";
 import { ChecklistCard } from "@/components/employees/checklist-card";
 import { bankDetailItems, DetailList } from "@/components/employees/detail-list";
 import { DocumentsCard } from "@/components/employees/documents-card";
@@ -24,6 +25,7 @@ import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
 import { employeeAttendanceSummary } from "@/server/modules/attendance/queries";
 import { defaultShift, listShifts } from "@/server/modules/attendance/shifts";
+import { employeeTimesheetSummary } from "@/server/modules/timesheets/queries";
 import { listEmployeeChecklists } from "@/server/modules/employees/checklists";
 import { listEmployeeDocuments } from "@/server/modules/employees/documents";
 import { employeeOptions, getEmployeeDetail, listEmployeeEvents, unlinkedUserOptions } from "@/server/modules/employees/queries";
@@ -294,7 +296,11 @@ export default async function EmployeeProfilePage({
           />
         </TabsContent>
         <TabsContent value="timesheets">
-          <EmptyState icon={Timer} title="Timesheets arrive in Phase 4" description="Weekly timesheets will show here." />
+          {isSelf || isManagerAbove(db, user, id) || can(user, "timesheet.view.all") ? (
+            <EmployeeTimesheetsTab weeks={employeeTimesheetSummary(db, id, { today })} isSelf={isSelf} />
+          ) : (
+            <EmptyState icon={Timer} title="Timesheets are private" description="The employee, their managers and HR can see them." />
+          )}
         </TabsContent>
 
         <TabsContent value="history">
