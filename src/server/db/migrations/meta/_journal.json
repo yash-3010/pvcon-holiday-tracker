@@ -15,6 +15,13 @@
       "when": 1790323714010,
       "tag": "0001_core_hr",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792790514123,
+      "tag": "0002_leave",
+      "breakpoints": true
     }
   ]
 }
