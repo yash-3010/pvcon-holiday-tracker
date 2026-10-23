@@ -8,3 +8,8 @@ import { getSetting } from "@/server/modules/settings/service";
 export function weeklyOffsForEmployee(db: DbLike, _employeeId: number): number[] {
   return getSetting(db, "attendance").weeklyOffs;
 }
+
+/** The company default (Phase 3: the default shift's offs), for previews that are not about one employee. */
+export function companyWeeklyOffs(db: DbLike): number[] {
+  return getSetting(db, "attendance").weeklyOffs;
+}
