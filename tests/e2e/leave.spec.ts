@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { changePassword, signIn, signInAsAdmin } from "./helpers";
+import { expect, test } from "@playwright/test";
+import { addEmployee, changePassword, signIn, signInAsAdmin } from "./helpers";
 
 const MANAGER = { first: "Ravi", last: "Kumar", email: "ravi.kumar@pvcon.in", password: "Ravi-Strong-Pass1" };
 const EMPLOYEE = { first: "Meera", last: "Iyer", email: "meera.iyer@pvcon.in", password: "Meera-Strong-Pass1" };
@@ -11,32 +11,6 @@ function leaveDate(): string | null {
   d.setUTCDate(d.getUTCDate() + 2);
   while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
   return d.getUTCFullYear() === year ? d.toISOString().slice(0, 10) : null;
-}
-
-async function addEmployee(page: Page, person: typeof MANAGER, managerName?: string): Promise<string> {
-  await page.goto("/org/employees/new");
-  await page.waitForLoadState("networkidle");
-  await page.getByLabel("First name").fill(person.first);
-  await page.getByLabel("Last name").fill(person.last);
-  await page.getByLabel("Work email").fill(person.email);
-  await page.getByRole("button", { name: "Next", exact: true }).click();
-  await page.getByLabel("Date of joining").fill("2025-01-01");
-  if (managerName) {
-    const select = page.getByLabel("Reporting manager");
-    const value = await select.locator("option", { hasText: managerName }).getAttribute("value");
-    await select.selectOption(value!);
-  }
-  await page.getByRole("button", { name: "Next", exact: true }).click();
-  await page.getByRole("button", { name: "Next", exact: true }).click();
-  await page.getByRole("button", { name: "Next", exact: true }).click();
-  await page.getByLabel("Login", { exact: true }).selectOption("create");
-  await page.getByRole("button", { name: "Create employee" }).click();
-  const dialog = page.getByRole("dialog", { name: "Temporary password" });
-  await expect(dialog).toBeVisible();
-  const password = (await dialog.getByTestId("temp-password").textContent())?.trim() ?? "";
-  await dialog.getByRole("button", { name: "Done" }).click();
-  await expect(page).toHaveURL(/\/org\/employees\/\d+$/);
-  return password;
 }
 
 test.describe.serial("leave", () => {
