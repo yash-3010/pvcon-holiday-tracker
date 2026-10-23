@@ -28,7 +28,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 | 0A Foundation — backend | `2026-09-24-phase-0a-foundation-backend.md` | ☑ done (912fd4d) |
 | 0B Foundation — UI, auth pages, e2e | `2026-09-24-phase-0b-foundation-ui.md` | ☑ done (deb1b70) |
 | 1 Core HR | `2026-09-25-phase-1-core-hr.md` | ☑ done (049b86d) |
-| 2 Leave, holidays, legacy migration | to be written | ☐ not started |
+| 2 Leave, holidays, legacy migration | `2026-10-23-phase-2-leave-holidays.md` | ◐ in progress (plan written) |
 | 3 Attendance + comp-off | to be written | ☐ not started |
 | 4 Timesheets | to be written | ☐ not started |
 | 5 Payroll + payslips | to be written | ☐ not started |
@@ -79,7 +79,8 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
     with `shifts` in Phase 3.
 15. **Team approval permissions.** Anyone with at least one current direct report receives `TEAM_APPROVAL_PERMISSIONS`
     (leave, comp-off, regularization, timesheet and claim approval) for their reporting tree. Later approval flows must
-    check `isInScope(db, user, employeeId)`, which is never true for the user's own record.
+    check scope and refuse the user's own record explicitly (`SELF_APPROVAL`): `isInScope` is false for a manager's
+    own record but true for org-wide viewers (`employee.view`).
 16. **Approvals inbox starts in Phase 1** with the Profile changes tab (nav item visible to `employee.update`).
     Phase 2 adds the Leave tab and widens the nav item's `anyOf` to the approval permissions.
 17. **CSV import** creates employee records only: no logins, no onboarding checklists. Managers are matched by

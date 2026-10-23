@@ -91,8 +91,9 @@ pino · nodemailer · vitest · Playwright. Later phases add @react-pdf/renderer
   - Pages call `requirePermission()` / `requireUser()` from `src/server/auth/session.ts`. Actions use `permission`.
   - Never trust client-side checks. The UI only hides things.
   - Manager scope comes from reporting lines. `SessionUser.employeeId`/`hasReports` are loaded from the DB each request.
-    Use `isInScope(db, user, employeeId)` for approvals and team actions (self is never in scope) and `canViewEmployee`
-    for read access (`src/server/modules/employees/scope.ts`).
+    Use `isInScope(db, user, employeeId)` for team actions and `canViewEmployee` for read access
+    (`src/server/modules/employees/scope.ts`). Org-wide viewers are in scope for their own record too, so approval
+    flows must also refuse the user's own request (`SELF_APPROVAL`).
 - **Session truth comes from the DB.**
   - `getCurrentUser()` loads user + roles each request and compares `session_version` to the JWT.
   - Roles and `mustChangePassword` are never read from the JWT.
