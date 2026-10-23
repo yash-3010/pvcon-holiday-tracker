@@ -127,3 +127,14 @@ export function recomputeDateForAll(db: DbLike, date: ISODate, opts: RecomputeOp
   for (const { id } of people) written += recomputeAttendance(db, id, date, date, opts).written;
   return written;
 }
+
+/**
+ * After a shift change: rebuilds today's row for these employees. Earlier days keep the rules they were computed with
+ * until something else (leave, a regularization, an override) recomputes them.
+ */
+export function recomputeToday(db: DbLike, employeeIds: number[], opts: RecomputeOptions = {}): number {
+  const today = dateInTimeZone(opts.now ?? new Date(), getSetting(db, "locale").timezone);
+  let written = 0;
+  for (const id of employeeIds) written += recomputeAttendance(db, id, today, today, opts).written;
+  return written;
+}

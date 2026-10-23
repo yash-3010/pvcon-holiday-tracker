@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { AttendanceMode, ShiftRules } from "@/lib/attendance";
 import { parseHm } from "@/lib/dates";
 import type { ShiftInput } from "@/lib/validation/attendance";
@@ -163,4 +163,9 @@ export function assignShift(db: DbLike, employeeIds: number[], shiftId: number |
   if (shiftId !== null && requireShift(db, shiftId).archived) throw new DomainError("ARCHIVED", "Choose an active shift.");
   if (employeeIds.length === 0) return 0;
   return db.update(employees).set({ shiftId }).where(inArray(employees.id, employeeIds)).run().changes;
+}
+
+/** Current employees without a shift of their own, who follow the default. */
+export function employeesOnDefaultShift(db: DbLike): number[] {
+  return db.select({ id: employees.id }).from(employees).where(and(isNull(employees.shiftId), CURRENT)).all().map((r) => r.id);
 }

@@ -3,6 +3,7 @@ import { ATTENDANCE_MODES, ATTENDANCE_STATUSES, COMP_OFF_RESOLUTIONS, WORK_MODES
 import { parseHm } from "@/lib/dates";
 import { isHalfStep } from "@/lib/leave";
 import { isoDate, optionalText } from "./employees";
+import { compOffSettingsSchema } from "./settings";
 
 const id = z.number().int().positive();
 const HM = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -105,4 +106,10 @@ export const attendanceSettingsFormSchema = z.object({
   defaultMode: z.enum(ATTENDANCE_MODES),
   regularizationWindowDays: z.number().int().min(0).max(365),
   defaultShiftId: id,
+});
+
+export const compOffSettingsFormSchema = compOffSettingsSchema.superRefine((s, ctx) => {
+  if (s.halfDayMinutes !== null && s.fullDayMinutes !== null && s.halfDayMinutes >= s.fullDayMinutes) {
+    ctx.addIssue({ code: "custom", path: ["halfDayMinutes"], message: "Must be less than the full-day threshold" });
+  }
 });

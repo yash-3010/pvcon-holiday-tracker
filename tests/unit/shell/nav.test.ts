@@ -27,6 +27,20 @@ describe("navigation", () => {
     expect(hrefs(["payroll_admin"])).not.toContain("/approvals");
   });
 
+  it("shows attendance and comp-off pages by permission", () => {
+    expect(hrefs(["employee"], true)).toEqual(expect.arrayContaining(["/me/attendance", "/me/comp-off"]));
+    expect(hrefs(["employee"], true)).not.toContain("/time/attendance");
+    expect(hrefs(["manager"], true)).toEqual(expect.arrayContaining(["/time/attendance", "/time/muster"]));
+    expect(hrefs(["manager"], true)).not.toContain("/time/shifts");
+    expect(hrefs(["manager"], true)).not.toContain("/leave/comp-off");
+    expect(hrefs(["hr_admin"])).toEqual(
+      expect.arrayContaining(["/time/attendance", "/time/muster", "/time/shifts", "/leave/comp-off", "/settings/attendance", "/settings/comp-off"]),
+    );
+    expect(hrefs(["payroll_admin"])).toEqual(expect.arrayContaining(["/time/attendance", "/time/muster", "/leave/comp-off"]));
+    expect(hrefs(["payroll_admin"])).not.toContain("/time/shifts");
+    expect(visibleNav(permissionsForRoles(["hr_admin"])).map((g) => g.title)).toEqual(["Home", "Team", "Time", "Organization", "Leave", "Settings"]);
+  });
+
   it("shows HR the org masters, approvals and users, but not company settings or jobs", () => {
     const items = hrefs(["hr_admin"]);
     expect(items).toEqual(
