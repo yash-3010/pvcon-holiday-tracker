@@ -105,6 +105,11 @@ export function leaveYearRange(year: number, startMonth: number): { start: ISODa
   return { start: `${year}-${mm}-01`, end: addDays(`${year + 1}-${mm}-01`, -1) };
 }
 
+/** "2026" for a January leave year, "2026–27" otherwise. */
+export function leaveYearLabel(year: number, startMonth: number): string {
+  return startMonth === 1 ? String(year) : `${year}–${String(year + 1).slice(2)}`;
+}
+
 /** 1 for the leave year's first month … 12 for its last. */
 export function leaveYearMonthIndex(date: ISODate, startMonth: number): number {
   const [, month] = parts(date);

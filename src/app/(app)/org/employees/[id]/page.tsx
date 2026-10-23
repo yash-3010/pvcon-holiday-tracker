@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Briefcase, CalendarClock, Landmark, Timer } from "lucide-react";
+import { CalendarClock, Landmark, Timer } from "lucide-react";
 import { ChecklistCard } from "@/components/employees/checklist-card";
 import { bankDetailItems, DetailList } from "@/components/employees/detail-list";
 import { DocumentsCard } from "@/components/employees/documents-card";
 import { EventsTimeline } from "@/components/employees/events-timeline";
 import { bankDefaults, jobDefaults, personalDefaults } from "@/components/employees/form-defaults";
 import { EmployeeStatusBadge } from "@/components/employees/status-badge";
+import { EmployeeLeaveTab } from "@/components/leave/employee-leave-tab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { can } from "@/lib/auth/permissions";
 import { formatDate, todayInTimeZone } from "@/lib/dates";
+import { leaveYearLabel, leaveYearOf } from "@/lib/leave";
 import {
   DOCUMENT_CATEGORIES, EMPLOYMENT_TYPE_LABELS, formatAddress, GENDER_LABELS, MARITAL_STATUS_LABELS, type SelectOption,
 } from "@/lib/hr";
@@ -23,6 +25,8 @@ import { listEmployeeChecklists } from "@/server/modules/employees/checklists";
 import { listEmployeeDocuments } from "@/server/modules/employees/documents";
 import { employeeOptions, getEmployeeDetail, listEmployeeEvents, unlinkedUserOptions } from "@/server/modules/employees/queries";
 import { canViewEmployee, getReportingTree, isManagerAbove } from "@/server/modules/employees/scope";
+import { leaveYearStartMonth } from "@/server/modules/leave/ledger";
+import { employeeLeaveSummary } from "@/server/modules/leave/queries";
 import { departmentOptions, designationOptions } from "@/server/modules/org/queries";
 import { getSetting } from "@/server/modules/settings/service";
 import { BankForm } from "./bank-form";
@@ -63,6 +67,9 @@ export default async function EmployeeProfilePage({
   const today = todayInTimeZone(timeZone);
   const excluded = new Set([id, ...getReportingTree(db, id)]);
   const checklists = listEmployeeChecklists(db, id);
+  const startMonth = leaveYearStartMonth(db);
+  const leaveYear = leaveYearOf(today, startMonth);
+  const leave = employeeLeaveSummary(db, id, leaveYear);
 
   const tabs = [
     { value: "overview", label: "Overview" },
@@ -261,7 +268,13 @@ export default async function EmployeeProfilePage({
           <EmptyState icon={CalendarClock} title="Attendance arrives in Phase 3" description="Daily attendance, punches and regularizations will show here." />
         </TabsContent>
         <TabsContent value="leave">
-          <EmptyState icon={Briefcase} title="Leave arrives in Phase 2" description="Leave balances and requests will show here." />
+          <EmployeeLeaveTab
+            employeeId={id}
+            yearLabel={leaveYearLabel(leaveYear, startMonth)}
+            balances={leave.balances}
+            recent={leave.recent}
+            showRegisterLinks={can(user, "leave.view.all")}
+          />
         </TabsContent>
         <TabsContent value="timesheets">
           <EmptyState icon={Timer} title="Timesheets arrive in Phase 4" description="Weekly timesheets will show here." />
