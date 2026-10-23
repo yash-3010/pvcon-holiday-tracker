@@ -28,6 +28,21 @@ export function listHolidays(db: DbLike, year: number): HolidayRow[] {
   return db.select().from(holidays).where(eq(holidays.year, year)).orderBy(asc(holidays.date)).all();
 }
 
+/** The year's holidays with how many employees picked each optional one. */
+export function listHolidaysWithPicks(db: DbLike, year: number): (HolidayRow & { picks: number })[] {
+  const counts = new Map(
+    db
+      .select({ holidayId: holidaySelections.holidayId, n: count() })
+      .from(holidaySelections)
+      .innerJoin(holidays, eq(holidays.id, holidaySelections.holidayId))
+      .where(eq(holidays.year, year))
+      .groupBy(holidaySelections.holidayId)
+      .all()
+      .map((r) => [r.holidayId, r.n]),
+  );
+  return listHolidays(db, year).map((h) => ({ ...h, picks: counts.get(h.id) ?? 0 }));
+}
+
 export function createHoliday(db: DbLike, input: HolidayInput): HolidayRow {
   assertDateFree(db, input.date, null);
   const row = db.insert(holidays).values({ ...input, year: yearOf(input.date) }).returning().get();
