@@ -60,7 +60,7 @@ export function submitProfileChange(
     type: "profile_change.submitted",
     title: `${employee.displayName} asked to change their bank details`,
     body: reason,
-    link: "/approvals",
+    link: "/approvals?tab=profile",
   });
   return request;
 }

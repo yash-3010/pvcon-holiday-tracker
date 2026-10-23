@@ -20,9 +20,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const timeZone = getSetting(db, "locale").timezone;
   const leave = can(user, "leave.approve") ? pendingLeaveForApprover(db, user) : null;
   const changes = can(user, "employee.update") ? listPendingProfileChanges(db, can(user, "employee.sensitive.view")) : null;
-  const tabs = [leave && "leave", changes && "profile"].filter((t): t is string => !!t);
+  const tabs = [
+    leave && { value: "leave", waiting: leave.length },
+    changes && { value: "profile", waiting: changes.length },
+  ].filter((t) => !!t);
   const requested = (await searchParams).tab;
-  const active = requested && tabs.includes(requested) ? requested : tabs[0];
+  // A link names its tab; otherwise open the first tab with something waiting.
+  const active = tabs.find((t) => t.value === requested)?.value ?? (tabs.find((t) => t.waiting > 0) ?? tabs[0])!.value;
 
   return (
     <>

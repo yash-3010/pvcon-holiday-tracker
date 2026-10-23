@@ -43,7 +43,7 @@ describe("submitting", () => {
     expect(JSON.stringify(request)).not.toContain("444455556666");
     expect(request).toMatchObject({ status: "pending", reason: "New salary account", requestedBy: ashaUser.id });
     expect(db.select().from(notifications).all().map((n) => [n.userId, n.type, n.link])).toEqual([
-      [hrUser.id, "profile_change.submitted", "/approvals"],
+      [hrUser.id, "profile_change.submitted", "/approvals?tab=profile"],
     ]);
   });
 
