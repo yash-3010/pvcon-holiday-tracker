@@ -6,7 +6,7 @@ import { can } from "@/lib/auth/permissions";
 import { dateInTimeZone, dayOfWeek, diffDays, eachDay, formatHm, minutesInZone, monthRange, parseHm, type ISODate, type Period } from "@/lib/dates";
 import type { DbLike } from "@/server/db/client";
 import {
-  attendanceDays, attendancePunches, compOffClaims, departments, employees, leaveRequests, leaveTypes, regularizationRequests,
+  attendanceDays, attendancePunches, compOffClaims, departments, employees, leaveRequests, leaveTypes, regularizationRequests, users,
   type AttendanceDayRow, type ShiftRow,
 } from "@/server/db/schema";
 import { getReportingTree, type ScopeUser } from "@/server/modules/employees/scope";
@@ -361,4 +361,53 @@ export function employeeAttendanceSummary(db: DbLike, employeeId: number, month:
   const counts = emptyCounts();
   for (const r of rows) if (!isProvisional(r.date, today, r.status)) counts[r.status] += 1;
   return { shift, counts, recent: rows.slice(0, 10) };
+}
+
+/** Whether `user` may see this employee's attendance: org-wide viewers, or approvers above them. */
+export function canViewAttendanceOf(db: DbLike, user: ScopeUser, employeeId: number): boolean {
+  const scope = attendanceScope(db, user);
+  return scope === "all" || scope.includes(employeeId);
+}
+
+export interface AttendanceDayDetail {
+  employee: { id: number; name: string; code: string };
+  date: ISODate;
+  row: Pick<
+    AttendanceDayRow,
+    "status" | "firstIn" | "lastOut" | "workedMinutes" | "lateMinutes" | "earlyMinutes" | "overtimeMinutes" | "offDayWorked" | "locked" | "overrideStatus" | "overrideNote" | "overrideAt"
+  > | null;
+  overrideBy: string | null;
+  punches: { time: string; direction: PunchDirection; source: PunchSource; workMode: WorkMode; note: string | null }[];
+  holiday: string | null;
+}
+
+/** One employee-day for the muster-roll dialog. */
+export function attendanceDayDetail(db: DbLike, employeeId: number, date: ISODate): AttendanceDayDetail | null {
+  const employee = db.select({ id: employees.id, name: employees.displayName, code: employees.employeeCode }).from(employees).where(eq(employees.id, employeeId)).get();
+  if (!employee) return null;
+  const timeZone = getSetting(db, "locale").timezone;
+  const row = db.select().from(attendanceDays).where(and(eq(attendanceDays.employeeId, employeeId), eq(attendanceDays.date, date))).get();
+  const overrideBy = row?.overrideBy
+    ? (db.select({ name: users.name }).from(users).where(eq(users.id, row.overrideBy)).get()?.name ?? null)
+    : null;
+  return {
+    employee,
+    date,
+    row: row
+      ? {
+          status: row.status, firstIn: row.firstIn, lastOut: row.lastOut, workedMinutes: row.workedMinutes, lateMinutes: row.lateMinutes,
+          earlyMinutes: row.earlyMinutes, overtimeMinutes: row.overtimeMinutes, offDayWorked: row.offDayWorked, locked: row.locked,
+          overrideStatus: row.overrideStatus, overrideNote: row.overrideNote, overrideAt: row.overrideAt,
+        }
+      : null,
+    overrideBy,
+    punches: db
+      .select()
+      .from(attendancePunches)
+      .where(and(eq(attendancePunches.employeeId, employeeId), eq(attendancePunches.date, date)))
+      .orderBy(asc(attendancePunches.at))
+      .all()
+      .map((p) => ({ time: formatHm(minutesInZone(new Date(p.at), timeZone)), direction: p.direction, source: p.source, workMode: p.workMode, note: p.note })),
+    holiday: holidaysForEmployee(db, employeeId, date, date)[0]?.name ?? null,
+  };
 }
