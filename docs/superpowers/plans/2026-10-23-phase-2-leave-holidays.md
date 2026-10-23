@@ -474,7 +474,7 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
   - idempotent.
 - `holidaysForEmployee(db, employeeId, from, to) → { date, name, type }[]`: fixed holidays plus the selected optional ones.
 - `holidayDatesForEmployee(db, employeeId, from, to): Set<ISODate>`.
-- `optionalPicksFor(db, employeeId, year) → { holidayId, date, name, selected, locked }[]` and `optionalUsed(db, employeeId, year)`.
+- `optionalPicksFor(db, employeeId, year, today) → { holidayId, date, name, selected, locked }[]` and `optionalUsed(db, employeeId, year)`.
 
 **Rules:**
 - `year` is derived from `date` (calendar year).
