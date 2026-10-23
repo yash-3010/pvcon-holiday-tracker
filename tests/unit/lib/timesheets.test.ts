@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dayAvailableMinutes, formatHours, hoursToMinutes, isQuarterHour, isWeekStart, minutesToHours, roundTimerMinutes, utilization,
-  weekDates,
+  weekDates, weekRangeLabel,
 } from "@/lib/timesheets";
 
 describe("quarter hours", () => {
@@ -39,6 +39,8 @@ describe("weeks", () => {
     expect(isWeekStart("2026-10-19")).toBe(true);
     expect(isWeekStart("2026-10-18")).toBe(false);
     expect(isWeekStart("not a date")).toBe(false);
+    expect(weekRangeLabel("2026-10-19")).toBe("19 – 25 Oct 2026");
+    expect(weekRangeLabel("2026-10-26")).toBe("26 Oct – 1 Nov 2026");
   });
 });
 

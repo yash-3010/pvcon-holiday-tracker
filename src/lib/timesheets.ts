@@ -1,4 +1,4 @@
-import { addDays, dayOfWeek, isISODate, type ISODate } from "./dates";
+import { addDays, dayOfWeek, formatDate, isISODate, type ISODate } from "./dates";
 
 export const TIMESHEET_STATUSES = ["draft", "submitted", "approved", "rejected"] as const;
 export type TimesheetStatus = (typeof TIMESHEET_STATUSES)[number];
@@ -64,6 +64,14 @@ export function isWeekStart(date: string): boolean {
 
 export function weekDates(weekStart: ISODate): ISODate[] {
   return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+}
+
+/** `"19 – 25 Oct 2026"`, or `"26 Oct – 1 Nov 2026"` across months. */
+export function weekRangeLabel(weekStart: ISODate): string {
+  const end = addDays(weekStart, 6);
+  const sameMonth = weekStart.slice(0, 7) === end.slice(0, 7);
+  const from = formatDate(weekStart, sameMonth ? { day: "numeric" } : { day: "numeric", month: "short" });
+  return `${from} – ${formatDate(end, { day: "numeric", month: "short", year: "numeric" })}`;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
