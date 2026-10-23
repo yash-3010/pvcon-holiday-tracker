@@ -2,28 +2,46 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { can } from "@/lib/auth/permissions";
-import { requirePermission } from "@/server/auth/session";
+import { requireAnyPermission } from "@/server/auth/session";
 import { db } from "@/server/db";
 import { listPendingProfileChanges } from "@/server/modules/employees/profile-changes";
+import { pendingLeaveForApprover } from "@/server/modules/leave/queries";
 import { getSetting } from "@/server/modules/settings/service";
+import { LeaveApprovalList } from "./leave-list";
 import { ProfileChangeList } from "./profile-change-list";
 
 export const metadata: Metadata = { title: "Approvals" };
 
-/** Phase 1 has one tab; Phase 2 adds Leave, Phase 3 Comp-off and Regularization, and so on (spec §5.7). */
-export default async function ApprovalsPage() {
-  const user = await requirePermission("employee.update");
-  const changes = listPendingProfileChanges(db, can(user, "employee.sensitive.view"));
+const count = (n: number) => (n ? ` (${n})` : "");
+
+/** Tabs per permission (spec §5.7): Leave in Phase 2, Comp-off and Regularization in Phase 3, and so on. */
+export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const user = await requireAnyPermission(["employee.update", "leave.approve"]);
+  const timeZone = getSetting(db, "locale").timezone;
+  const leave = can(user, "leave.approve") ? pendingLeaveForApprover(db, user) : null;
+  const changes = can(user, "employee.update") ? listPendingProfileChanges(db, can(user, "employee.sensitive.view")) : null;
+  const tabs = [leave && "leave", changes && "profile"].filter((t): t is string => !!t);
+  const requested = (await searchParams).tab;
+  const active = requested && tabs.includes(requested) ? requested : tabs[0];
+
   return (
     <>
       <PageHeader title="Approvals" description="Requests waiting for a decision." />
-      <Tabs defaultValue="profile">
+      <Tabs defaultValue={active}>
         <TabsList>
-          <TabsTrigger value="profile">Profile changes{changes.length ? ` (${changes.length})` : ""}</TabsTrigger>
+          {leave && <TabsTrigger value="leave">Leave{count(leave.length)}</TabsTrigger>}
+          {changes && <TabsTrigger value="profile">Profile changes{count(changes.length)}</TabsTrigger>}
         </TabsList>
-        <TabsContent value="profile">
-          <ProfileChangeList changes={changes} ownEmployeeId={user.employeeId} timeZone={getSetting(db, "locale").timezone} />
-        </TabsContent>
+        {leave && (
+          <TabsContent value="leave">
+            <LeaveApprovalList requests={leave} timeZone={timeZone} />
+          </TabsContent>
+        )}
+        {changes && (
+          <TabsContent value="profile">
+            <ProfileChangeList changes={changes} ownEmployeeId={user.employeeId} timeZone={timeZone} />
+          </TabsContent>
+        )}
       </Tabs>
     </>
   );
