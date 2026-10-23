@@ -125,14 +125,17 @@ function requirePendingClaim(db: DbLike, actor: SessionUser, claimId: number): C
   return claim;
 }
 
-function notifyEmployee(db: DbLike, employeeId: number, n: { type: string; title: string; body?: string | null }): void {
+/** Notifies the employee's active login, if any; returns whether it was sent. */
+function notifyEmployee(db: DbLike, employeeId: number, n: { type: string; title: string; body?: string | null }): boolean {
   const login = db
     .select({ userId: employees.userId, status: users.status })
     .from(employees)
     .innerJoin(users, eq(users.id, employees.userId))
     .where(eq(employees.id, employeeId))
     .get();
-  if (login?.status === "active") notify(db, { userId: login.userId!, ...n, link: "/me/comp-off" });
+  if (login?.status !== "active") return false;
+  notify(db, { userId: login.userId!, ...n, link: "/me/comp-off" });
+  return true;
 }
 
 /**
@@ -281,4 +284,55 @@ export function restoreCompOff(db: DbLike, request: LeaveRequestRow, today: ISOD
     }
   }
   db.delete(compOffConsumptions).where(eq(compOffConsumptions.leaveRequestId, request.id)).run();
+}
+
+/**
+ * Nightly (spec §5.5): lots past their expiry lapse what is left; lots expiring in exactly seven days trigger a warning.
+ */
+export function expireCompOff(db: DbLike, today: ISODate): { expired: number; warned: number } {
+  const type = compOffType(db);
+  if (!type) return { expired: 0, warned: 0 };
+  const year = leaveYearOf(today, leaveYearStartMonth(db));
+  const expiring = db
+    .select()
+    .from(compOffLots)
+    .where(and(eq(compOffLots.status, "active"), lt(compOffLots.expiresOn, today)))
+    .all();
+  for (const lot of expiring) {
+    if (lot.remaining > 0) {
+      postLedger(db, {
+        employeeId: lot.employeeId, leaveTypeId: type.id, year, date: today, delta: -lot.remaining, kind: "comp_off_lapse",
+        refType: "comp_off_lot", refId: lot.id, note: `Expired on ${lot.expiresOn}`,
+      });
+    }
+    db.update(compOffLots).set({ status: "expired", remaining: 0 }).where(eq(compOffLots.id, lot.id)).run();
+  }
+
+  const soon = addDays(today, 7);
+  const dueSoon = db
+    .select({ employeeId: compOffLots.employeeId, days: sql<number>`sum(${compOffLots.remaining})` })
+    .from(compOffLots)
+    .where(and(eq(compOffLots.status, "active"), eq(compOffLots.expiresOn, soon), sql`${compOffLots.remaining} > 0`))
+    .groupBy(compOffLots.employeeId)
+    .all();
+  let warned = 0;
+  for (const { employeeId, days } of dueSoon) {
+    const sent = notifyEmployee(db, employeeId, {
+      type: "compoff.expiring", title: `${formatDays(days)} of comp-off expires on ${formatDate(soon)}`,
+      body: "Apply for comp-off leave before then, or it lapses.",
+    });
+    if (sent) warned += 1;
+  }
+  return { expired: expiring.length, warned };
+}
+
+/** Comp-off days still held in active lots, for the year-end carry. */
+export function activeCompOffDays(db: DbLike, employeeId: number): number {
+  return (
+    db
+      .select({ total: sql<number>`coalesce(sum(${compOffLots.remaining}), 0)` })
+      .from(compOffLots)
+      .where(and(eq(compOffLots.employeeId, employeeId), eq(compOffLots.status, "active")))
+      .get()?.total ?? 0
+  );
 }

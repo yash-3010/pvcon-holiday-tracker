@@ -121,12 +121,18 @@ describe("closing a leave year", () => {
     expect(balanceOf(db, e.id, types.SL.id, 2027)).toBe(0);
   });
 
-  it("leaves negative and comp-off balances alone", () => {
+  it("leaves negative balances alone", () => {
     const e = insertEmployee(db);
     postLedger(db, { employeeId: e.id, leaveTypeId: types.LWP.id, year: 2026, date: "2026-05-04", delta: -2, kind: "taken" });
-    postLedger(db, { employeeId: e.id, leaveTypeId: types.CO.id, year: 2026, date: "2026-05-04", delta: 1, kind: "comp_off_credit" });
     expect(closeLeaveYear(db, e.id, 2026)).toEqual({ carried: 0, lapsed: 0 });
-    expect(balanceOf(db, e.id, types.CO.id, 2026)).toBe(1);
+    expect(balanceOf(db, e.id, types.LWP.id, 2026)).toBe(-2);
+  });
+
+  it("lapses comp-off that no active lot holds any more", () => {
+    const e = insertEmployee(db);
+    postLedger(db, { employeeId: e.id, leaveTypeId: types.CO.id, year: 2026, date: "2026-05-04", delta: 1, kind: "comp_off_credit" });
+    expect(closeLeaveYear(db, e.id, 2026)).toEqual({ carried: 0, lapsed: 1 });
+    expect(balanceOf(db, e.id, types.CO.id, 2027)).toBe(0);
   });
 });
 

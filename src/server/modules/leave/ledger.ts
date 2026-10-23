@@ -10,6 +10,7 @@ import {
 } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { getSetting } from "@/server/modules/settings/service";
+import { activeCompOffDays } from "@/server/modules/compoff/service";
 import { isApplicable, listLeaveTypes, requireLeaveType } from "./types";
 
 export interface NewLedgerEntry {
@@ -216,7 +217,8 @@ export function syncEntitlements(db: DbLike, employeeId: number, asOf: ISODate):
 
 /**
  * Year-end for one employee (spec §5.4): a positive balance carries forward up to the type's cap into the next leave
- * year and the rest lapses, so the closed year nets to zero and its days can't be spent twice. Comp-off is skipped: its lots expire on their own (Phase 3). Idempotent.
+ * year and the rest lapses, so the closed year nets to zero and its days can't be spent twice. Comp-off carries what its
+ * active lots still hold. Idempotent.
  * Encashable types also lapse the excess until Phase 5 adds encashment.
  */
 export function closeLeaveYear(db: DbLike, employeeId: number, year: number): { carried: number; lapsed: number } {
@@ -233,12 +235,12 @@ export function closeLeaveYear(db: DbLike, employeeId: number, year: number): { 
 
   for (const leaveTypeId of typeIds) {
     const type = db.select().from(leaveTypes).where(eq(leaveTypes.id, leaveTypeId)).get()!;
-    if (type.isCompOff) continue;
     const ref = { refType: "year_end", refId: year };
     if (hasEntry(db, { employeeId, leaveTypeId, ...ref })) continue;
     const balance = balanceOf(db, employeeId, leaveTypeId, year);
     if (balance <= 0) continue;
-    const carry = Math.min(balance, type.carryForwardMax);
+    // Comp-off moves with its lots, which expire on their own: carry what the active lots still hold.
+    const carry = Math.min(balance, type.isCompOff ? activeCompOffDays(db, employeeId) : type.carryForwardMax);
     const lapse = balance - carry;
     if (carry > 0) {
       postLedger(db, { employeeId, leaveTypeId, year, date: range.end, delta: -carry, kind: "carry_forward", ...ref });

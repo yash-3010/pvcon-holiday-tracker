@@ -6,6 +6,7 @@ import { employeeLifecycleJob } from "./employee-lifecycle";
 import { leaveAccrueJob } from "./leave-accrue";
 import { leaveYearEndJob } from "./leave-year-end";
 import { attendanceCloseDayJob } from "./attendance-close-day";
+import { compOffExpireJob } from "./compoff-expire";
 
 export interface JobDefinition {
   /** URL-safe name, e.g. `system:cleanup`; also the cron path segment. */
@@ -18,7 +19,9 @@ export interface JobDefinition {
 }
 
 /** Every scheduled job. Later phases append their jobs here. */
-export const JOBS: JobDefinition[] = [systemCleanupJob, employeeLifecycleJob, leaveAccrueJob, leaveYearEndJob, attendanceCloseDayJob];
+export const JOBS: JobDefinition[] = [
+  systemCleanupJob, employeeLifecycleJob, leaveAccrueJob, leaveYearEndJob, attendanceCloseDayJob, compOffExpireJob,
+];
 
 export function findJob(name: string): JobDefinition | undefined {
   return JOBS.find((j) => j.name === name);
