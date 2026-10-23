@@ -8,7 +8,7 @@ import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DB } from "@/server/db/client";
 import {
-  employees, holidayYearConfig, leaveLedger, leaveRequests, leaveTypes, userRoles, users,
+  attendanceDays, employees, holidayYearConfig, leaveLedger, leaveRequests, leaveTypes, userRoles, users,
 } from "@/server/db/schema";
 import { legacyBalance, readLegacy, type LegacySource } from "@/server/modules/legacy/source";
 import { migrateLegacy } from "@/server/modules/legacy/migrate";
@@ -110,7 +110,24 @@ describe("migrateLegacy", () => {
       leaveRequests: { approved: 9, cancelled: 1 },
       ledgerEntries: expect.any(Number),
       years: [2024, 2025, 2026],
+      attendanceDays: expect.any(Number),
     });
+  });
+
+  it("computes attendance for the history in auto mode, so it reads present rather than absent", () => {
+    // 1 July 2026, 11:30 IST.
+    const { report } = migrateLegacy(source, db, { now: new Date("2026-07-01T06:00:00Z") });
+    const day = (email: string, date: string) =>
+      db.select().from(attendanceDays).where(and(eq(attendanceDays.employeeId, employeeByEmail(email)!.id), eq(attendanceDays.date, date))).get();
+    expect(day("asha@pvcon.in", "2025-03-09")).toBeUndefined();
+    expect(day("asha@pvcon.in", "2025-03-10")).toMatchObject({ status: "present", workedMinutes: 0 });
+    expect(day("asha@pvcon.in", "2025-04-01")).toMatchObject({ status: "on_leave" });
+    expect(day("asha@pvcon.in", "2025-04-05")).toMatchObject({ status: "weekly_off" });
+    expect(day("ravi@pvcon.in", "2026-01-26")).toMatchObject({ status: "holiday" });
+    expect(day("ravi@pvcon.in", "2026-07-02")).toBeUndefined();
+    // An inactive account has no known last working day, so it gets no attendance.
+    expect(db.select().from(attendanceDays).where(eq(attendanceDays.employeeId, employeeByEmail("old@pvcon.in")!.id)).all()).toEqual([]);
+    expect(report.attendanceDays).toBe(db.select().from(attendanceDays).all().length);
   });
 
   it("turns admins into super admins and employees into numbered employee records", () => {

@@ -50,6 +50,8 @@ describe("attendance:close-day", () => {
   it("fills earlier days nobody computed, leaving computed and locked ones alone", () => {
     const late = insertEmployee(db, { dateOfJoining: "2026-10-20" });
     const future = insertEmployee(db, { dateOfJoining: "2026-11-09" });
+    // Migrated inactive accounts are exited without a last working day: they get no attendance at all.
+    const gone = insertEmployee(db, { dateOfJoining: "2024-01-01", status: "exited" });
     db.insert(attendanceDays).values({ employeeId: late.id, date: "2026-11-02", status: "present", workedMinutes: 540, locked: true }).run();
     expect(runJobByName(db, "attendance:close-day", AT).detail).toContain("17 missing earlier day(s) filled");
     const rows = db.select().from(attendanceDays).where(eq(attendanceDays.employeeId, late.id)).all();
@@ -59,6 +61,7 @@ describe("attendance:close-day", () => {
     expect(rows.find((r) => r.date === "2026-11-02")).toMatchObject({ status: "present", locked: true });
     expect(rows.find((r) => r.date === "2026-11-02")!.workedMinutes).toBe(540);
     expect(db.select().from(attendanceDays).where(eq(attendanceDays.employeeId, future.id)).all()).toEqual([]);
+    expect(db.select().from(attendanceDays).where(eq(attendanceDays.employeeId, gone.id)).all()).toEqual([]);
   });
 
   it("sends no prompts when comp-off is off", () => {

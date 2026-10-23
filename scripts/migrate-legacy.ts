@@ -23,6 +23,7 @@ try {
   console.log(`  Optional picks:     ${report.optionalSelections} (${report.droppedSelections} dropped: admins without leave history)`);
   console.log(`  Leave requests:     ${report.leaveRequests.approved} approved, ${report.leaveRequests.cancelled} cancelled`);
   console.log(`  Ledger entries:     ${report.ledgerEntries} across ${report.years.join(", ") || "no years"}`);
+  console.log(`  Attendance days:    ${report.attendanceDays} (auto mode: present unless on leave, a holiday or a weekly off)`);
   if (report.superAdmins === 0) console.warn("  Warning: no super admin was migrated. Run `npm run db:seed` with DB_FILE pointing at the new file.");
 
   if (mismatches.length) {

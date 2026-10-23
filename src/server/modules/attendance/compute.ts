@@ -108,21 +108,25 @@ export function recomputeAttendance(
   return result;
 }
 
+/**
+ * Employees employed on some day of [from, to]. An exited employee counts up to their last working day; one without a
+ * last working day (a migrated inactive account) has no attendance.
+ */
+function employedDuring(from: ISODate, to: ISODate) {
+  return and(
+    lte(employees.dateOfJoining, to),
+    or(
+      and(inArray(employees.status, ["active", "on_notice"]), or(isNull(employees.lastWorkingDate), gte(employees.lastWorkingDate, from))),
+      and(eq(employees.status, "exited"), gte(employees.lastWorkingDate, from)),
+    ),
+  );
+}
+
 /** Recomputes one date for everyone employed on it (after a holiday change, or the nightly close). Returns the count. */
 export function recomputeDateForAll(db: DbLike, date: ISODate, opts: RecomputeOptions = {}): number {
   const today = dateInTimeZone(opts.now ?? new Date(), getSetting(db, "locale").timezone);
   if (date > today) return 0;
-  const people = db
-    .select({ id: employees.id })
-    .from(employees)
-    .where(
-      and(
-        lte(employees.dateOfJoining, date),
-        or(isNull(employees.lastWorkingDate), gte(employees.lastWorkingDate, date)),
-        inArray(employees.status, ["active", "on_notice", "exited"]),
-      ),
-    )
-    .all();
+  const people = db.select({ id: employees.id }).from(employees).where(employedDuring(date, date)).all();
   let written = 0;
   for (const { id } of people) written += recomputeAttendance(db, id, date, date, opts).written;
   return written;
@@ -150,13 +154,7 @@ export function fillMissingAttendance(db: DbLike, from: ISODate, to: ISODate, op
   const people = db
     .select({ id: employees.id, joined: employees.dateOfJoining, last: employees.lastWorkingDate })
     .from(employees)
-    .where(
-      and(
-        lte(employees.dateOfJoining, end),
-        or(isNull(employees.lastWorkingDate), gte(employees.lastWorkingDate, from)),
-        inArray(employees.status, ["active", "on_notice", "exited"]),
-      ),
-    )
+    .where(employedDuring(from, end))
     .all();
   const existing = new Set(
     db

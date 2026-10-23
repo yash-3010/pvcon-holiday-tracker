@@ -1,10 +1,12 @@
 import { eq } from "drizzle-orm";
 import type { Role } from "@/lib/auth/permissions";
+import { dateInTimeZone } from "@/lib/dates";
 import { fullName } from "@/lib/hr";
 import type { LeaveHalf } from "@/lib/leave";
 import type { DB, DbLike } from "@/server/db/client";
 import { nowIso } from "@/server/db/columns";
 import { employees, holidaySelections, holidays, leaveRequests, leaveTypes, users } from "@/server/db/schema";
+import { fillMissingAttendance } from "@/server/modules/attendance/compute";
 import { seedDefaultShift } from "@/server/modules/attendance/shifts";
 import { seedDefaultChecklistTemplates } from "@/server/modules/employees/checklists";
 import { nextEmployeeCode } from "@/server/modules/employees/code";
@@ -12,6 +14,7 @@ import { recordEmployeeEvent } from "@/server/modules/employees/service";
 import { setYearConfig } from "@/server/modules/holidays/service";
 import { postLedger } from "@/server/modules/leave/ledger";
 import { seedDefaultLeaveTypes } from "@/server/modules/leave/types";
+import { getSetting } from "@/server/modules/settings/service";
 import { createUser } from "@/server/modules/users/service";
 import { legacyPolicy, legacyYearsFor, type LegacyLeave, type LegacySource, type LegacyUser } from "./source";
 
@@ -31,6 +34,8 @@ export interface MigrationReport {
   leaveRequests: { approved: number; cancelled: number };
   ledgerEntries: number;
   years: number[];
+  /** Attendance rows computed for the history (auto mode: present unless on leave, a holiday or a weekly off). */
+  attendanceDays: number;
 }
 
 /** Old user id → new user and employee ids. */
@@ -62,18 +67,19 @@ function halvesFor(leave: LegacyLeave): LeaveHalf {
 }
 
 /**
- * Copies the old Holiday Tracker data into a freshly migrated database (spec §8, steps 1–6 and 9; attendance comes in
- * Phase 3). Runs in one transaction. Seeds leave types and checklist templates, but not the seed admin: old admins
+ * Copies the old Holiday Tracker data into a freshly migrated database (spec §8, steps 1–7 and 9). Runs in one
+ * transaction. Seeds leave types and checklist templates, but not the seed admin: old admins
  * become super admins.
  */
-export function migrateLegacy(source: LegacySource, db: DB): { report: MigrationReport; map: MigrationMap } {
-  return db.transaction((tx) => run(source, tx));
+export function migrateLegacy(source: LegacySource, db: DB, { now = new Date() }: { now?: Date } = {}): { report: MigrationReport; map: MigrationMap } {
+  return db.transaction((tx) => run(source, tx, now));
 }
 
-function run(source: LegacySource, db: DbLike): { report: MigrationReport; map: MigrationMap } {
+function run(source: LegacySource, db: DbLike, now: Date): { report: MigrationReport; map: MigrationMap } {
   const report: MigrationReport = {
     users: 0, superAdmins: 0, employees: 0, exitedEmployees: 0, adminsWithEmployeeRecord: [], holidays: 0,
     optionalSelections: 0, droppedSelections: 0, leaveRequests: { approved: 0, cancelled: 0 }, ledgerEntries: 0, years: [],
+    attendanceDays: 0,
   };
   const map: MigrationMap = new Map();
   seedDefaultChecklistTemplates(db);
@@ -226,5 +232,9 @@ function run(source: LegacySource, db: DbLike): { report: MigrationReport; map: 
       report.leaveRequests.cancelled += 1;
     }
   }
+
+  // 8. Attendance for the whole history, so the muster roll matches the leave (spec §8 step 7).
+  const firstJoined = source.users.map((u) => u.joinedDate).sort()[0];
+  if (firstJoined) report.attendanceDays = fillMissingAttendance(db, firstJoined, dateInTimeZone(now, getSetting(db, "locale").timezone), { now });
   return { report, map };
 }
