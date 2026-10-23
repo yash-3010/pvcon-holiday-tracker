@@ -7,7 +7,8 @@ import type { CompOffGrantInput } from "@/lib/validation/attendance";
 import type { DbLike } from "@/server/db/client";
 import { nowIso } from "@/server/db/columns";
 import {
-  attendanceDays, compOffClaims, compOffLots, employees, users, type CompOffClaimRow, type CompOffLotRow,
+  attendanceDays, compOffClaims, compOffConsumptions, compOffLots, employees, users, type CompOffClaimRow, type CompOffLotRow,
+  type LeaveRequestRow,
 } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { approverUserIdsFor, canDecideFor, COMP_OFF_APPROVAL } from "@/server/modules/approvals/routing";
@@ -236,4 +237,48 @@ export function compOffAvailable(db: DbLike, employeeId: number, onDate: ISODate
       .where(and(eq(compOffLots.employeeId, employeeId), eq(compOffLots.status, "active"), gte(compOffLots.expiresOn, onDate)))
       .get()?.total ?? 0
   );
+}
+
+/**
+ * Takes a CO leave request's days from the employee's lots, earliest expiry first (spec §5.5). Only lots still valid on
+ * the leave's start date are used. Called when the leave is approved.
+ */
+export function consumeCompOff(db: DbLike, request: LeaveRequestRow): void {
+  let needed = request.days;
+  const usable = db
+    .select()
+    .from(compOffLots)
+    .where(and(eq(compOffLots.employeeId, request.employeeId), eq(compOffLots.status, "active"), gte(compOffLots.expiresOn, request.startDate)))
+    .orderBy(asc(compOffLots.expiresOn), asc(compOffLots.id))
+    .all();
+  for (const lot of usable) {
+    if (needed <= 0) break;
+    const take = Math.min(lot.remaining, needed);
+    const remaining = lot.remaining - take;
+    db.insert(compOffConsumptions).values({ lotId: lot.id, leaveRequestId: request.id, days: take }).run();
+    db.update(compOffLots).set({ remaining, status: remaining === 0 ? "consumed" : "active" }).where(eq(compOffLots.id, lot.id)).run();
+    needed -= take;
+  }
+  if (needed > 0) throw new DomainError("INSUFFICIENT_BALANCE", "Not enough comp-off is valid on those dates.");
+}
+
+/**
+ * Gives a cancelled CO leave's days back to the lots they came from. Days whose lot has expired since lapse at once.
+ */
+export function restoreCompOff(db: DbLike, request: LeaveRequestRow, today: ISODate): void {
+  const type = compOffType(db)!;
+  const taken = db.select().from(compOffConsumptions).where(eq(compOffConsumptions.leaveRequestId, request.id)).all();
+  for (const c of taken) {
+    const lot = db.select().from(compOffLots).where(eq(compOffLots.id, c.lotId)).get()!;
+    if (lot.expiresOn < today) {
+      postLedger(db, {
+        employeeId: lot.employeeId, leaveTypeId: type.id, year: leaveYearOf(today, leaveYearStartMonth(db)), date: today,
+        delta: -c.days, kind: "comp_off_lapse", refType: "comp_off_lot", refId: lot.id, note: "Expired while the leave was booked",
+      });
+      db.update(compOffLots).set({ status: "expired" }).where(eq(compOffLots.id, lot.id)).run();
+    } else {
+      db.update(compOffLots).set({ remaining: lot.remaining + c.days, status: "active" }).where(eq(compOffLots.id, lot.id)).run();
+    }
+  }
+  db.delete(compOffConsumptions).where(eq(compOffConsumptions.leaveRequestId, request.id)).run();
 }

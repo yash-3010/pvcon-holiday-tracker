@@ -6,6 +6,7 @@ import type { DbLike } from "@/server/db/client";
 import { holidays, type EmployeeRow } from "@/server/db/schema";
 import { companyWeeklyOffs, weeklyOffsForEmployee } from "@/server/modules/attendance/calendar";
 import { holidaysForEmployee } from "@/server/modules/holidays/service";
+import { compOffAvailable } from "@/server/modules/compoff/service";
 import { getSetting } from "@/server/modules/settings/service";
 import { balancesFor, leaveYearStartMonth } from "./ledger";
 import { isApplicable, listLeaveTypes } from "./types";
@@ -30,8 +31,12 @@ export function applyLeaveContext(db: DbLike, employee: EmployeeRow | null, toda
     }));
   const available: ApplyLeaveContext["available"] = {};
   if (employee) {
+    // Comp-off is what its lots still hold today, not the ledger (spec §5.5).
+    const compOff = compOffAvailable(db, employee.id, today);
     for (const y of [year, year + 1]) {
-      available[y] = Object.fromEntries(balancesFor(db, employee.id, y).map((b) => [b.type.id, b.available]));
+      available[y] = Object.fromEntries(
+        balancesFor(db, employee.id, y).map((b) => [b.type.id, b.type.isCompOff ? compOff - b.pending : b.available]),
+      );
     }
   }
   return {

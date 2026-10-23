@@ -12,6 +12,7 @@ import { DomainError } from "@/server/errors";
 import { weeklyOffsForEmployee } from "@/server/modules/attendance/calendar";
 import { onLeaveChanged } from "@/server/modules/attendance/hooks";
 import { approverUserIdsFor, canDecideFor, LEAVE_APPROVAL } from "@/server/modules/approvals/routing";
+import { compOffAvailable, consumeCompOff, restoreCompOff } from "@/server/modules/compoff/service";
 import type { ScopeUser } from "@/server/modules/employees/scope";
 import { requireEmployee } from "@/server/modules/employees/service";
 import { holidayDatesForEmployee } from "@/server/modules/holidays/service";
@@ -138,7 +139,9 @@ function checkApplication(
       "attachment",
     );
   }
-  assertBalance(type, quote.days, quote.available);
+  // Comp-off lives in expiring lots: what counts is what is still valid on the start date (spec §5.5).
+  const available = type.isCompOff ? compOffAvailable(db, employee.id, range.startDate) - quote.pending : quote.available;
+  assertBalance(type, quote.days, available);
   return { type, quote };
 }
 
@@ -182,7 +185,8 @@ function employeeUserId(db: DbLike, employeeId: number): number | null {
   return row && row.status === "active" ? row.userId : null;
 }
 
-function postTaken(db: DbLike, request: LeaveRequestRow, actorUserId: number): void {
+function postTaken(db: DbLike, request: LeaveRequestRow, actorUserId: number, type: LeaveTypeRow): void {
+  if (type.isCompOff) consumeCompOff(db, request);
   postLedger(db, {
     employeeId: request.employeeId,
     leaveTypeId: request.leaveTypeId,
@@ -256,7 +260,7 @@ export function applyLeaveOnBehalf(
     })
     .returning()
     .get();
-  postTaken(db, request, actor.id);
+  postTaken(db, request, actor.id, type);
   const userId = employeeUserId(db, employee.id);
   if (userId !== null) {
     notify(db, {
@@ -271,7 +275,9 @@ export function approveLeave(db: DbLike, actor: SessionUser, requestId: number, 
   const request = requireRequest(db, requestId);
   assertCanDecide(db, actor, request);
   const type = requireLeaveType(db, request.leaveTypeId);
-  const balance = balanceOf(db, request.employeeId, type.id, leaveYearOf(request.startDate, leaveYearStartMonth(db)));
+  const balance = type.isCompOff
+    ? compOffAvailable(db, request.employeeId, request.startDate)
+    : balanceOf(db, request.employeeId, type.id, leaveYearOf(request.startDate, leaveYearStartMonth(db)));
   assertBalance(type, request.days, balance);
   const approved = db
     .update(leaveRequests)
@@ -279,7 +285,7 @@ export function approveLeave(db: DbLike, actor: SessionUser, requestId: number, 
     .where(eq(leaveRequests.id, requestId))
     .returning()
     .get()!;
-  postTaken(db, approved, actor.id);
+  postTaken(db, approved, actor.id, type);
   const userId = employeeUserId(db, request.employeeId);
   if (userId !== null) {
     notify(db, {
@@ -374,6 +380,7 @@ export function cancelLeave(
     refId: request.id,
     createdBy: actor.id,
   });
+  if (type.isCompOff) restoreCompOff(db, request, today);
   onLeaveChanged(db, request.employeeId, request.startDate, request.endDate);
 
   if (own) {
