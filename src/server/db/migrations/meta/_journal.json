@@ -22,6 +22,13 @@
       "when": 1792790514123,
       "tag": "0002_leave",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1792793568460,
+      "tag": "0003_attendance",
+      "breakpoints": true
     }
   ]
 }

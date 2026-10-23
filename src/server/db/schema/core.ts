@@ -5,6 +5,7 @@ import {
   type Address, type ChecklistItemState, type ChecklistTemplateItem, type EmergencyContact, type EventValues,
 } from "../../../lib/hr";
 import { nowIso, timestamps } from "../columns";
+import { shifts } from "./attendance";
 import { users } from "./auth";
 import { files } from "./system";
 
@@ -65,6 +66,8 @@ export const employees = sqliteTable(
     /** AES-256-GCM of the JSON `IdNumbers`; never sent to the client. */
     idNumbersEnc: text("id_numbers_enc"),
     photoFileId: integer("photo_file_id").references(() => files.id, { onDelete: "set null" }),
+    /** null = the default shift (`attendance.defaultShiftId`). Shifts are archived, never deleted. */
+    shiftId: integer("shift_id").references((): AnySQLiteColumn => shifts.id),
     ...timestamps(),
   },
   (t) => [

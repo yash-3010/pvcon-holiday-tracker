@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { COMP_OFF_CLAIM_STATUSES, COMP_OFF_LOT_STATUSES, COMP_OFF_RESOLUTIONS } from "../../../lib/attendance";
 import type { EmploymentType } from "../../../lib/hr";
 import { HOLIDAY_TYPES, LEAVE_ACCRUALS, LEAVE_HALVES, LEAVE_REQUEST_STATUSES, LEDGER_KINDS } from "../../../lib/leave";
 import { nowIso, timestamps } from "../columns";
@@ -135,7 +137,71 @@ export const holidaySelections = sqliteTable(
   (t) => [primaryKey({ columns: [t.employeeId, t.holidayId] })],
 );
 
+export const compOffClaims = sqliteTable(
+  "comp_off_claims",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    workedDate: text("worked_date").notNull(),
+    /** Snapshot of the day's worked minutes when the claim was made. */
+    workedMinutes: integer("worked_minutes").notNull(),
+    daysRequested: real("days_requested").notNull(),
+    reason: text("reason"),
+    status: text("status", { enum: COMP_OFF_CLAIM_STATUSES }).notNull().default("pending"),
+    approverId: integer("approver_id").references(() => users.id, { onDelete: "set null" }),
+    decidedAt: text("decided_at"),
+    decisionNote: text("decision_note"),
+    /** How an approved claim was settled: an expiring leave lot, or pay in the next payroll run (Phase 5). */
+    resolution: text("resolution", { enum: COMP_OFF_RESOLUTIONS }),
+    createdAt: text("created_at").notNull().$defaultFn(nowIso),
+  },
+  (t) => [
+    // One live claim per worked day; a rejected or withdrawn claim can be made again.
+    uniqueIndex("comp_off_claims_active_idx")
+      .on(t.employeeId, t.workedDate)
+      .where(sql`${t.status} in ('pending', 'approved')`),
+  ],
+);
+
+export const compOffLots = sqliteTable(
+  "comp_off_lots",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    /** null for a manual grant by HR. */
+    claimId: integer("claim_id").references(() => compOffClaims.id, { onDelete: "set null" }),
+    days: real("days").notNull(),
+    remaining: real("remaining").notNull(),
+    earnedOn: text("earned_on").notNull(),
+    expiresOn: text("expires_on").notNull(),
+    status: text("status", { enum: COMP_OFF_LOT_STATUSES }).notNull().default("active"),
+    note: text("note"),
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: text("created_at").notNull().$defaultFn(nowIso),
+  },
+  (t) => [index("comp_off_lots_employee_idx").on(t.employeeId, t.status, t.expiresOn)],
+);
+
+export const compOffConsumptions = sqliteTable(
+  "comp_off_consumptions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    lotId: integer("lot_id")
+      .notNull()
+      .references(() => compOffLots.id, { onDelete: "cascade" }),
+    leaveRequestId: integer("leave_request_id").notNull(),
+    days: real("days").notNull(),
+  },
+  (t) => [index("comp_off_consumptions_request_idx").on(t.leaveRequestId)],
+);
+
 export type LeaveTypeRow = typeof leaveTypes.$inferSelect;
+export type CompOffClaimRow = typeof compOffClaims.$inferSelect;
+export type CompOffLotRow = typeof compOffLots.$inferSelect;
 export type LeaveLedgerRow = typeof leaveLedger.$inferSelect;
 export type LeaveRequestRow = typeof leaveRequests.$inferSelect;
 export type HolidayRow = typeof holidays.$inferSelect;
