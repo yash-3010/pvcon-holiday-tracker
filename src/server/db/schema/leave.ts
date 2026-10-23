@@ -155,6 +155,8 @@ export const compOffClaims = sqliteTable(
     decisionNote: text("decision_note"),
     /** How an approved claim was settled: an expiring leave lot, or pay in the next payroll run (Phase 5). */
     resolution: text("resolution", { enum: COMP_OFF_RESOLUTIONS }),
+    /** For payout claims: the payroll run that paid them (payroll_runs.id; no foreign key to keep schema modules acyclic). */
+    paidRunId: integer("paid_run_id"),
     createdAt: text("created_at").notNull().$defaultFn(nowIso),
   },
   (t) => [
