@@ -1,15 +1,15 @@
 import type { DbLike } from "@/server/db/client";
-import { getSetting } from "@/server/modules/settings/service";
+import { defaultShift, shiftForEmployee } from "./shifts";
 
 /**
- * Days of the week (0 = Sunday) the employee does not work. Phase 2 uses the company setting; Phase 3 reads the
- * employee's shift. Leave counting, the team calendar and timesheets must go through this, never the setting.
+ * Days of the week (0 = Sunday) the employee does not work: their shift's, or the default shift's. Leave counting, the
+ * team calendar and timesheets go through this, never through shifts or settings directly.
  */
-export function weeklyOffsForEmployee(db: DbLike, _employeeId: number): number[] {
-  return getSetting(db, "attendance").weeklyOffs;
+export function weeklyOffsForEmployee(db: DbLike, employeeId: number): number[] {
+  return shiftForEmployee(db, employeeId).weeklyOffs;
 }
 
-/** The company default (Phase 3: the default shift's offs), for previews that are not about one employee. */
+/** The default shift's weekly offs, for previews that are not about one employee. */
 export function companyWeeklyOffs(db: DbLike): number[] {
-  return getSetting(db, "attendance").weeklyOffs;
+  return defaultShift(db).weeklyOffs;
 }

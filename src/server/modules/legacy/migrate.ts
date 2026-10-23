@@ -5,6 +5,7 @@ import type { LeaveHalf } from "@/lib/leave";
 import type { DB, DbLike } from "@/server/db/client";
 import { nowIso } from "@/server/db/columns";
 import { employees, holidaySelections, holidays, leaveRequests, leaveTypes, users } from "@/server/db/schema";
+import { seedDefaultShift } from "@/server/modules/attendance/shifts";
 import { seedDefaultChecklistTemplates } from "@/server/modules/employees/checklists";
 import { nextEmployeeCode } from "@/server/modules/employees/code";
 import { recordEmployeeEvent } from "@/server/modules/employees/service";
@@ -77,6 +78,8 @@ function run(source: LegacySource, db: DbLike): { report: MigrationReport; map: 
   const map: MigrationMap = new Map();
   seedDefaultChecklistTemplates(db);
   seedDefaultLeaveTypes(db);
+  // Auto mode: migrated people have no punches, so their history must not read as absent (spec §8 step 7).
+  seedDefaultShift(db, { attendanceMode: "auto" });
 
   // 1. Leave types follow the most recent policy year.
   const latest = source.policies.at(-1) ?? legacyPolicy(source, new Date().getUTCFullYear());

@@ -65,8 +65,8 @@ describe("other leave schemas", () => {
   it("validates holidays and leave settings", () => {
     expect(holidaySchema.safeParse({ date: "2026-02-30", name: "X", type: "fixed" }).success).toBe(false);
     expect(holidaySchema.parse({ date: "2026-01-26", name: " Republic Day ", type: "fixed" }).name).toBe("Republic Day");
-    expect(leaveSettingsFormSchema.safeParse({ yearStartMonth: 4, weeklyOffs: [0, 0] }).success).toBe(false);
-    expect(leaveSettingsFormSchema.parse({ yearStartMonth: 4, weeklyOffs: [6, 0] }).weeklyOffs).toEqual([0, 6]);
+    expect(leaveSettingsFormSchema.safeParse({ yearStartMonth: 13 }).success).toBe(false);
+    expect(leaveSettingsFormSchema.parse({ yearStartMonth: 4 })).toEqual({ yearStartMonth: 4 });
   });
 });
 

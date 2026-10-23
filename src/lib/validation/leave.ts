@@ -108,10 +108,5 @@ export const holidayYearConfigSchema = z.object({
 
 export const leaveSettingsFormSchema = z.object({
   yearStartMonth: z.number().int().min(1).max(12),
-  weeklyOffs: z
-    .array(z.number().int().min(0).max(6))
-    .max(6, "Leave at least one working day")
-    .refine((days) => new Set(days).size === days.length, "Each day once")
-    .transform((days) => [...days].sort((a, b) => a - b)),
 });
 export type LeaveSettingsForm = z.output<typeof leaveSettingsFormSchema>;

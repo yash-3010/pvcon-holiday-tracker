@@ -14,9 +14,9 @@ export default async function LeaveSettingsPage() {
   const yearLocked = (db.select({ n: count() }).from(leaveLedger).get()?.n ?? 0) > 0;
   return (
     <>
-      <PageHeader title="Leave settings" description="When the leave year starts and which days are weekly offs." />
+      <PageHeader title="Leave settings" description="When the leave year starts." />
       <LeaveSettingsForm
-        initial={{ yearStartMonth: getSetting(db, "leave").yearStartMonth, weeklyOffs: getSetting(db, "attendance").weeklyOffs }}
+        initial={{ yearStartMonth: getSetting(db, "leave").yearStartMonth }}
         yearLocked={yearLocked}
       />
     </>
