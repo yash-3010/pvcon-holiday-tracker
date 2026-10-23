@@ -34,6 +34,8 @@ export const leaveSettingsSchema = z.object({
 export const attendanceSettingsSchema = z.object({
   defaultMode: z.enum(["punch", "auto"]),
   regularizationWindowDays: z.number().int().min(0).max(365),
+  /** Company weekly offs (0 = Sunday). Phase 3 shifts take over; this becomes the default shift's offs. */
+  weeklyOffs: z.array(z.number().int().min(0).max(6)).max(6),
 });
 
 export const compOffSettingsSchema = z.object({
@@ -84,7 +86,7 @@ export const SETTINGS = {
   }),
   employee: defineSetting(employeeSettingsSchema, { codePrefix: "PV", codeDigits: 4 }),
   leave: defineSetting(leaveSettingsSchema, { yearStartMonth: 1 }),
-  attendance: defineSetting(attendanceSettingsSchema, { defaultMode: "punch", regularizationWindowDays: 30 }),
+  attendance: defineSetting(attendanceSettingsSchema, { defaultMode: "punch", regularizationWindowDays: 30, weeklyOffs: [0, 6] }),
   compOff: defineSetting(compOffSettingsSchema, {
     enabled: true,
     halfDayMinutes: null,
