@@ -7,17 +7,15 @@ import {
 } from "@/lib/leave";
 import type { DbLike } from "@/server/db/client";
 import { nowIso } from "@/server/db/columns";
-import {
-  employees, leaveRequests, users, type EmployeeRow, type LeaveRequestRow, type LeaveTypeRow,
-} from "@/server/db/schema";
+import { employees, leaveRequests, users, type EmployeeRow, type LeaveRequestRow, type LeaveTypeRow } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { weeklyOffsForEmployee } from "@/server/modules/attendance/calendar";
 import { onLeaveChanged } from "@/server/modules/attendance/hooks";
-import { isManagerAbove, type ScopeUser } from "@/server/modules/employees/scope";
+import { approverUserIdsFor, canDecideFor, LEAVE_APPROVAL } from "@/server/modules/approvals/routing";
+import type { ScopeUser } from "@/server/modules/employees/scope";
 import { requireEmployee } from "@/server/modules/employees/service";
 import { holidayDatesForEmployee } from "@/server/modules/holidays/service";
 import { notify, notifyMany } from "@/server/modules/notifications/service";
-import { activeUserIdsWithPermission } from "@/server/modules/users/service";
 import { balanceOf, leaveYearStartMonth, pendingDays, postLedger } from "./ledger";
 import { isApplicable, requireLeaveType } from "./types";
 
@@ -146,20 +144,7 @@ function checkApplication(
 
 /** Who should decide a request: the reporting manager's login, otherwise org-wide leave approvers (HR). */
 export function leaveApproverUserIds(db: DbLike, employeeId: number): number[] {
-  const employee = requireEmployee(db, employeeId);
-  if (employee.reportingManagerId !== null) {
-    const manager = db
-      .select({ userId: employees.userId, status: employees.status, userStatus: users.status })
-      .from(employees)
-      .leftJoin(users, eq(users.id, employees.userId))
-      .where(eq(employees.id, employee.reportingManagerId))
-      .get();
-    if (manager?.userId && manager.status !== "exited" && manager.userStatus === "active" && manager.userId !== employee.userId) {
-      return [manager.userId];
-    }
-  }
-  const orgWide = new Set(activeUserIdsWithPermission(db, "leave.view.all"));
-  return activeUserIdsWithPermission(db, "leave.approve").filter((id) => orgWide.has(id) && id !== employee.userId);
+  return approverUserIdsFor(db, employeeId, LEAVE_APPROVAL);
 }
 
 /**
@@ -167,8 +152,7 @@ export function leaveApproverUserIds(db: DbLike, employeeId: number): number[] {
  * manager above them. Never for one's own leave, even for org-wide approvers.
  */
 export function canDecideLeave(db: DbLike, user: ScopeUser, employeeId: number): boolean {
-  if (user.employeeId === employeeId || !can(user, "leave.approve")) return false;
-  return can(user, "leave.view.all") || isManagerAbove(db, user, employeeId);
+  return canDecideFor(db, user, employeeId, LEAVE_APPROVAL);
 }
 
 function requireRequest(db: DbLike, id: number): LeaveRequestRow {
