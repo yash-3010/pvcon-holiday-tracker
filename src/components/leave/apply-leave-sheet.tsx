@@ -16,6 +16,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { dayOfWeek, formatDate, type ISODate } from "@/lib/dates";
 import { LEAVE_HALF_LABELS, WEEKDAY_LABELS, countLeaveDays, formatDays, leaveYearOf, type LeaveHalf } from "@/lib/leave";
+import type { SelectOption } from "@/lib/hr";
 import type { ActionResult } from "@/server/actions/execute";
 
 export interface ApplyLeaveType {
@@ -75,13 +76,13 @@ export function ApplyLeaveSheet<S extends z.ZodType>({
   description?: string;
   submitLabel?: string;
   successMessage?: string;
-  employeePicker?: { options: { value: number; label: string }[] };
+  employeePicker?: { options: SelectOption[] };
 }) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const defaults: FormValues = {
     leaveTypeId: context.types[0]?.id ?? 0, startDate: context.today, endDate: context.today, startHalf: "full", endHalf: "full",
-    reason: "", ...(employeePicker ? { employeeId: employeePicker.options[0]?.value ?? 0 } : {}),
+    reason: "", ...(employeePicker ? { employeeId: employeePicker.options[0]?.id ?? 0 } : {}),
   };
   const form = useForm<FormValues>({ resolver: zodResolver(schema as never), defaultValues: defaults });
   const { run, pending } = useServerAction(action, {
@@ -149,7 +150,7 @@ export function ApplyLeaveSheet<S extends z.ZodType>({
             <Field label="Employee" htmlFor="leave-employee" error={errors.employeeId?.message} required>
               <NativeSelect id="leave-employee" {...form.register("employeeId", { valueAsNumber: true })}>
                 {employeePicker.options.map((o) => (
-                  <option key={o.value} value={o.value}>
+                  <option key={o.id} value={o.id}>
                     {o.label}
                   </option>
                 ))}
