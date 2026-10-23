@@ -580,7 +580,8 @@ requests and selections go; delete a holiday → its selections go). `(year, dat
      - name split on the first space;
      - DOJ = `joined_date`;
      - work email = email.
-   - An admin who has leaves or optional picks also gets an employee record, so no history is lost.
+   - An admin who has leave history also gets an employee record, so no history is lost. Optional picks alone
+     don't count (the system account may have clicked one).
    - Inactive old users become `exited` employees, exit reason "Migrated inactive account".
 5. Holidays: copied as-is. Selections are mapped user → employee; selections of admins without a record are dropped and counted.
 6. Ledger: per employee, per year in (policy years ∪ that employee's leave years ∪ their carry-forward years), excluding
