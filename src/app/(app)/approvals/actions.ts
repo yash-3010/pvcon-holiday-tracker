@@ -1,18 +1,22 @@
 "use server";
 
 import { z } from "zod";
-import { can } from "@/lib/auth/permissions";
+import { can, canAny } from "@/lib/auth/permissions";
 import { dateInTimeZone, formatHm } from "@/lib/dates";
 import { compOffDecisionSchema, decisionSchema } from "@/lib/validation/attendance";
 import { optionalText } from "@/lib/validation/employees";
 import { bulkApproveSchema, leaveDecisionSchema } from "@/lib/validation/leave";
+import { bulkApproveTimesheetsSchema, timesheetDecisionSchema } from "@/lib/validation/timesheets";
 import { defineAction } from "@/server/actions/define";
+import { DomainError } from "@/server/errors";
 import { approveRegularization, rejectRegularization } from "@/server/modules/attendance/regularization";
 import { diffObjects } from "@/server/modules/audit/service";
 import { approveCompOffClaim, rejectCompOffClaim } from "@/server/modules/compoff/service";
 import { decideProfileChange } from "@/server/modules/employees/profile-changes";
 import { approveLeave, bulkApproveLeave, rejectLeave } from "@/server/modules/leave/requests";
 import { getSetting } from "@/server/modules/settings/service";
+import { timesheetDetailForApprover } from "@/server/modules/timesheets/queries";
+import { approveTimesheet, bulkApproveTimesheets, rejectTimesheet } from "@/server/modules/timesheets/service";
 
 export const decideProfileChangeAction = defineAction({
   name: "approvals.profile_change",
@@ -107,4 +111,47 @@ export const decideCompOffAction = defineAction({
     return { status: claim.status };
   },
   revalidate: ["/approvals", "/me/comp-off", "/leave/comp-off"],
+});
+
+const TIMESHEET_PATHS = ["/approvals", "/me/timesheets", "/time/projects"];
+
+export const decideTimesheetAction = defineAction({
+  name: "approvals.timesheet",
+  schema: timesheetDecisionSchema,
+  // Scope (manager above or org-wide approver, never one's own) is checked by the service.
+  permission: "timesheet.approve",
+  handler: ({ tx, user, audit }, { timesheetId, decision, note }) => {
+    const timesheet = decision === "approved" ? approveTimesheet(tx, user, timesheetId, note) : rejectTimesheet(tx, user, timesheetId, note);
+    audit({
+      action: decision === "approved" ? "timesheet.approve" : "timesheet.reject", entityType: "timesheet", entityId: timesheetId,
+      summary: `${decision === "approved" ? "Approved" : "Returned"} the timesheet for the week of ${timesheet.weekStart}${note ? `: ${note}` : ""}`,
+    });
+    return { status: timesheet.status };
+  },
+  revalidate: TIMESHEET_PATHS,
+});
+
+export const bulkApproveTimesheetsAction = defineAction({
+  name: "approvals.timesheet_bulk",
+  schema: bulkApproveTimesheetsSchema,
+  permission: "timesheet.approve",
+  handler: ({ tx, user, audit }, { timesheetIds, note }) => {
+    const result = bulkApproveTimesheets(tx, user, timesheetIds, note);
+    for (const id of result.approved) audit({ action: "timesheet.approve", entityType: "timesheet", entityId: id, summary: "Approved a timesheet (bulk)" });
+    return { approved: result.approved.length, failed: result.failed };
+  },
+  revalidate: TIMESHEET_PATHS,
+});
+
+/** Read-only: the week behind an approval row. Nothing changes, so nothing is audited. */
+export const timesheetDetailAction = defineAction({
+  name: "approvals.timesheet_detail",
+  schema: z.object({ timesheetId: z.number().int().positive() }),
+  permission: (user) => canAny(user, ["timesheet.approve", "timesheet.view.all"]),
+  handler: ({ tx, user }, { timesheetId }) => {
+    const now = new Date();
+    const detail = timesheetDetailForApprover(tx, user, timesheetId, { today: dateInTimeZone(now, getSetting(tx, "locale").timezone), now });
+    if (!detail) throw new DomainError("NOT_FOUND", "Timesheet not found.");
+    return detail;
+  },
 });
