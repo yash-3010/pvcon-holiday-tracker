@@ -70,6 +70,9 @@ export const componentSchema = z
   })
   .transform((c) => ({
     ...c,
+    // Amounts entered per run are never prorated; only earnings and employer contributions make up the CTC.
+    prorate: c.calc === "input" ? false : c.prorate,
+    inCtc: c.calc !== "input" && (c.kind === "earning" || c.kind === "employer_contribution") && c.inCtc,
     // Keep only the fields the calc type uses.
     defaultValue: c.calc === "fixed" ? c.defaultValue : null,
     percentOf: c.calc === "percent" ? c.percentOf : null,

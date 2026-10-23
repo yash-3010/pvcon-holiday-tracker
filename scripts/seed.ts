@@ -3,6 +3,7 @@ import { openDatabase } from "../src/server/db/client";
 import { seedDefaultChecklistTemplates } from "../src/server/modules/employees/checklists";
 import { seedDefaultShift } from "../src/server/modules/attendance/shifts";
 import { seedDefaultLeaveTypes } from "../src/server/modules/leave/types";
+import { seedPayrollDefaults } from "../src/server/modules/payroll/structures";
 import { seedTimesheetDefaults } from "../src/server/modules/projects/service";
 import { createUser, findUserByEmail, hashPassword } from "../src/server/modules/users/service";
 
@@ -20,6 +21,8 @@ async function main() {
   console.log(`Default shift: ${shift.name} ${shift.startTime}–${shift.endTime}.`);
   db.transaction((tx) => seedTimesheetDefaults(tx));
   console.log("Task categories and the Internal project are in place.");
+  db.transaction((tx) => seedPayrollDefaults(tx));
+  console.log("Salary components and the Standard structure are in place.");
 
   if (findUserByEmail(db, email)) {
     console.log(`Super admin ${email} already exists in ${file}; nothing to do.`);
