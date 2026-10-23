@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
+import { RequestStatusBadge } from "@/components/attendance/request-status-badge";
 import { AttendanceStatusBadge } from "@/components/attendance/status-badge";
 import { MonthCalendar } from "@/components/attendance/month-calendar";
 import { applyFieldErrors, useServerAction } from "@/components/forms/use-server-action";
@@ -26,15 +27,6 @@ import { requestRegularizationAction, withdrawRegularizationAction } from "./act
 
 type RegularizationInput = z.input<typeof regularizationSchema>;
 type RegularizationOutput = z.output<typeof regularizationSchema>;
-
-const REQUEST_STATUS_BADGE = { pending: "warning", approved: "success", rejected: "destructive", withdrawn: "secondary" } as const;
-const REQUEST_STATUS_LABEL = { pending: "Pending", approved: "Approved", rejected: "Rejected", withdrawn: "Withdrawn" } as const;
-type RequestStatus = keyof typeof REQUEST_STATUS_BADGE;
-
-function RequestBadge({ status }: { status: string }) {
-  const s = status as RequestStatus;
-  return <Badge variant={REQUEST_STATUS_BADGE[s] ?? "secondary"}>{REQUEST_STATUS_LABEL[s] ?? status}</Badge>;
-}
 
 function RegularizeForm({ day, shift, onDone }: { day: MyAttendanceDay; shift: { start: string; end: string }; onDone: () => void }) {
   const form = useForm<RegularizationInput, unknown, RegularizationOutput>({
@@ -85,7 +77,7 @@ function CompOffSection({ day, onDone }: { day: MyAttendanceDay; onDone: () => v
       {compOff.claim && (
         <div className="flex items-center justify-between gap-2 text-sm">
           <span className="flex items-center gap-2">
-            Claim <RequestBadge status={compOff.claim.status} />
+            Claim <RequestStatusBadge status={compOff.claim.status} />
           </span>
           {compOff.claim.status === "pending" && (
             <Button size="sm" variant="outline" disabled={withdraw.pending} onClick={() => withdraw.run({ claimId: compOff.claim!.id })}>
@@ -163,7 +155,7 @@ function DayDetail({ day, shift, onDone }: { day: MyAttendanceDay; shift: { star
           <h3 className="text-sm font-medium">Correction</h3>
           <div className="flex items-center justify-between gap-2 text-sm">
             <span className="flex items-center gap-2 tabular-nums">
-              {formatHm(reg.requestedIn)}–{formatHm(reg.requestedOut)} <RequestBadge status={reg.status} />
+              {formatHm(reg.requestedIn)}–{formatHm(reg.requestedOut)} <RequestStatusBadge status={reg.status} />
             </span>
             {reg.status === "pending" && (
               <Button size="sm" variant="outline" disabled={withdraw.pending} onClick={() => withdraw.run({ id: reg.id })}>
