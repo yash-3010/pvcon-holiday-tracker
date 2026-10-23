@@ -186,7 +186,7 @@ These are the five failure modes most likely to hurt a real user. Each one has a
 - Leave year: Jan start, Apr start, and dates on both sides of each boundary.
 - Month index: April-start year, 2027-03-15 → 12.
 - `accrualCredit(10, k)` for k = 1…12 gives `[0.5, 1, 1, 0.5, 1, 1, 0.5, 1, 1, 0.5, 1, 1]`, summing to 10.
-  `accrualCredit(12, k)` = 1 for every k. `accrualCredit(18, k)` alternates 1 and 2.
+  `accrualCredit(12, k)` = 1 for every k. `accrualCredit(18, k)` = 1.5 for every k.
 - `proRatedQuota(12, 10)` = 3; `proRatedQuota(7, 7)` = 3.5; `proRatedQuota(12, 1)` = 12.
 - `countLeaveDays`:
   - Mon–Fri = 5.
