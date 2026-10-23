@@ -28,7 +28,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 | 0A Foundation — backend | `2026-09-24-phase-0a-foundation-backend.md` | ☑ done (912fd4d) |
 | 0B Foundation — UI, auth pages, e2e | `2026-09-24-phase-0b-foundation-ui.md` | ☑ done (deb1b70) |
 | 1 Core HR | `2026-09-25-phase-1-core-hr.md` | ☑ done (049b86d) |
-| 2 Leave, holidays, legacy migration | `2026-10-23-phase-2-leave-holidays.md` | ◐ in progress (plan written) |
+| 2 Leave, holidays, legacy migration | `2026-10-23-phase-2-leave-holidays.md` | ☑ done (05b006a) |
 | 3 Attendance + comp-off | to be written | ☐ not started |
 | 4 Timesheets | to be written | ☐ not started |
 | 5 Payroll + payslips | to be written | ☐ not started |
@@ -93,6 +93,47 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
     `employee:lifecycle` job never disables the last active super admin's login.
 21. **Probation reminders** go to `employee.update` holders once per employee and probation end date, when it is
     within the next 7 days.
+22. **LWP debits its own ledger.** Approved leave without pay posts a `taken` row against the LWP type, so its balance goes
+    negative and equals the days used. It never touches CL/SL. Spec §8's "no balance debit" is honoured in that no paid
+    balance is reduced; migrated unpaid leave is posted the same way.
+23. **Leave years.** A request may not cross a leave-year boundary (`CROSSES_LEAVE_YEAR`); its ledger rows use the leave
+    year of its start date. `leave.yearStartMonth` is locked once any ledger row exists.
+24. **Balance checks count pending requests** (available = balance − pending) when applying. Approval re-checks the
+    balance alone.
+25. **Self-service rules.**
+    - Back-dated requests are allowed only for types with `min_notice_days = 0` (e.g. SL).
+    - HR "Record leave" (apply on behalf, `leave.adjust`) is approved at once and skips notice and max-consecutive, but
+      not balance, overlap or employment dates.
+    - Nobody records, approves or adjusts their own leave (`SELF_APPROVAL`, `SELF_ADJUST`).
+    - Employees cancel their own approved leave only before it starts; HR (`leave.adjust`) cancels any, with a note.
+26. **Credits stay in half days.**
+    - Monthly accrual credits `floorHalf(q·k/12) − floorHalf(q·(k−1)/12)` in month k.
+    - Upfront grants are pro-rated by the months left, counting the joining month, rounded to the nearest half day.
+    - New employees get their joining year's credits on creation (`syncEntitlements`); later years come from the jobs.
+27. **Year end.**
+    - Carry-forward is posted as a pair (−c out of the closed year, +c into the next), so a closed year nets to zero.
+    - The excess of encashable types lapses until Phase 5 adds encashment.
+    - Comp-off is skipped; its lots expire in Phase 3.
+28. **Weekly offs** come from `attendance.weeklyOffs` (default Sat/Sun, edited on Settings → Leave) until Phase 3 shifts.
+    Code reads them only through `weeklyOffsForEmployee` / `companyWeeklyOffs`.
+29. **Holidays.**
+    - The optional-holiday quota is per calendar year; a year with no config allows 0 picks.
+    - Picks lock once the date passes.
+    - Making an optional holiday fixed clears its picks.
+    - Holiday edits never re-price existing requests.
+30. **Team calendar** shows org-wide viewers everyone (department filter). Everyone else sees themselves, their reporting
+    tree and their peers (same manager). The leave type is masked as "Leave" unless the viewer is the employee, an
+    org-wide viewer or a manager above them.
+31. **Approvals inbox** opens the first tab with requests waiting unless `?tab=` names one. Notifications deep-link to
+    their tab.
+32. **Legacy migration.**
+    - Old admins become super admins; an admin with leave history also gets an employee record.
+    - Optional picks alone don't count, and picks of admins without a record are dropped and reported.
+    - Inactive users become disabled logins and exited employees.
+    - Grants follow each year's old policy without pro-rating, to match the old balances.
+    - Attendance backfill (§8 step 7) moves to Phase 3; the default shift and payroll components are seeded in Phases 3 and 5.
+33. **Job run keys may read settings**: `JobDefinition.runKey(now, timeZone, db)`, so `leave:year-end` keys on the leave
+    year being closed.
 
 ## Cross-phase integration map
 
@@ -103,8 +144,9 @@ Build each phase so these seams exist. Later phases consume them.
 | Phase 1 employees | `employees.user_id`, `reporting_manager_id`, `getReportingTree(db, managerEmployeeId)`, `isInScope(db, user, employeeId)`, `canViewEmployee`, `SessionUser.employeeId`/`hasReports` (`src/server/modules/employees/scope.ts`) | every approval flow, scopes, dashboards |
 | Phase 1 employees | `employee_events` writer `recordEmployeeEvent()` | payroll salary revisions, exits |
 | Phase 0/1 users | `activeUserIdsWithPermission(db, permission)` (approver fallback, HR notifications) | every approval flow, reminders |
-| Phase 2 leave | `approved leave for (employee, date)` query + `onLeaveChanged` hook → attendance recompute | attendance (3), timesheets (4), payroll LOP (5) |
-| Phase 2 holidays | `holidaysForEmployee(db, employeeId, range)` (fixed + selected optional) | attendance, leave day count, timesheets, payroll working days |
+| Phase 2 leave | approved `leave_requests` (status, days, halves, `is_lop` type) + `onLeaveChanged(tx, employeeId, from, to)` in `attendance/hooks.ts` | attendance (3), timesheets (4), payroll LOP (5) |
+| Phase 2 leave | `postLedger`, `balanceOf`, `syncEntitlements`, `canDecideLeave`, the CO type (`compOffType`) | comp-off credits/FIFO (3), encashment (5) |
+| Phase 2 holidays | `holidaysForEmployee(db, employeeId, from, to)`, `holidayDatesForEmployee`, `onHolidayChanged(tx, date)`; `weeklyOffsForEmployee` in `attendance/calendar.ts` | attendance, leave day count, timesheets, payroll working days |
 | Phase 3 attendance | `attendance_days` rows + `recomputeAttendance(db, employeeId, from, to)` | comp-off (3), timesheet reconciliation (4), payroll (5), reports (6) |
 | Phase 3 comp-off | CO leave type + `comp_off_lots` FIFO consume/restore on leave approve/cancel | leave (2 hooks), payroll payout (5) |
 | Phase 5 payroll | approval locks `attendance_days.locked` for period | attendance edits (3) must respect lock |

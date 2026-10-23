@@ -170,3 +170,26 @@ sudo systemctl enable --now fail2ban
 | almas@pvcon.in | Pvcon@1234 | employee |
 
 All forced to change password on first login.
+
+## 10. Moving the data to PVCON People (preview)
+
+The HRMS rebuild (`feat/hrms-overhaul`) uses a new database file. It never upgrades the Holiday Tracker database in
+place: `npm run db:migrate` refuses to touch it. Phase 6 replaces this section with the full cutover runbook. Until
+then, the migration can be rehearsed on a copy:
+
+```bash
+# On a copy of production data, never the live file
+sqlite3 /var/www/pvcon-holiday-tracker/data/app.db ".backup /tmp/app-copy.db"
+
+npm run db:migrate-legacy -- --from /tmp/app-copy.db --to /tmp/people.db
+```
+
+The script opens the old file read-only and builds `--to` from scratch:
+- users and roles, with old passwords still working;
+- employee records with codes PV0001…;
+- holidays and optional picks;
+- leave types from the latest policy year;
+- every leave as a request plus a ledger entry.
+
+It then compares every employee/year balance with the old app's calculation (casual, sick, unpaid and optional
+holidays). It prints a summary and exits non-zero if any balance differs; the new file is kept for inspection.
