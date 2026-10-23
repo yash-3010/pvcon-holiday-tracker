@@ -169,3 +169,14 @@ export function assignShift(db: DbLike, employeeIds: number[], shiftId: number |
 export function employeesOnDefaultShift(db: DbLike): number[] {
   return db.select({ id: employees.id }).from(employees).where(and(isNull(employees.shiftId), CURRENT)).all().map((r) => r.id);
 }
+
+/** Current employees who work this shift, counting those without a shift when it is the default. */
+export function employeesOnShift(db: DbLike, shiftId: number): number[] {
+  const assigned = db
+    .select({ id: employees.id })
+    .from(employees)
+    .where(and(eq(employees.shiftId, shiftId), CURRENT))
+    .all()
+    .map((r) => r.id);
+  return getSetting(db, "attendance").defaultShiftId === shiftId ? [...assigned, ...employeesOnDefaultShift(db)] : assigned;
+}

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, Landmark, Timer } from "lucide-react";
+import { Landmark, Timer } from "lucide-react";
+import { EmployeeAttendanceTab } from "@/components/attendance/employee-attendance-tab";
 import { ChecklistCard } from "@/components/employees/checklist-card";
 import { bankDetailItems, DetailList } from "@/components/employees/detail-list";
 import { DocumentsCard } from "@/components/employees/documents-card";
@@ -13,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { can } from "@/lib/auth/permissions";
+import { can, canAny } from "@/lib/auth/permissions";
 import { formatDate, todayInTimeZone } from "@/lib/dates";
 import { leaveYearLabel, leaveYearOf } from "@/lib/leave";
 import {
@@ -21,6 +22,8 @@ import {
 } from "@/lib/hr";
 import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
+import { employeeAttendanceSummary } from "@/server/modules/attendance/queries";
+import { defaultShift, listShifts } from "@/server/modules/attendance/shifts";
 import { listEmployeeChecklists } from "@/server/modules/employees/checklists";
 import { listEmployeeDocuments } from "@/server/modules/employees/documents";
 import { employeeOptions, getEmployeeDetail, listEmployeeEvents, unlinkedUserOptions } from "@/server/modules/employees/queries";
@@ -70,6 +73,7 @@ export default async function EmployeeProfilePage({
   const startMonth = leaveYearStartMonth(db);
   const leaveYear = leaveYearOf(today, startMonth);
   const leave = employeeLeaveSummary(db, id, leaveYear);
+  const attendance = employeeAttendanceSummary(db, id, today.slice(0, 7));
 
   const tabs = [
     { value: "overview", label: "Overview" },
@@ -265,7 +269,20 @@ export default async function EmployeeProfilePage({
           </TabsContent>
         )}
         <TabsContent value="attendance">
-          <EmptyState icon={CalendarClock} title="Attendance arrives in Phase 3" description="Daily attendance, punches and regularizations will show here." />
+          <EmployeeAttendanceTab
+            employeeId={id}
+            month={today.slice(0, 7)}
+            shift={attendance.shift}
+            assignedShiftId={attendance.assignedShiftId}
+            counts={attendance.counts}
+            recent={attendance.recent}
+            shiftChoice={
+              can(user, "shift.manage") && employee.status !== "exited"
+                ? { defaultName: defaultShift(db).name, shifts: listShifts(db).map((s) => ({ id: s.id, name: s.name, times: `${s.startTime}–${s.endTime}` })) }
+                : null
+            }
+            links={{ muster: canAny(user, ["attendance.view.all", "regularization.approve"]), mine: isSelf }}
+          />
         </TabsContent>
         <TabsContent value="leave">
           <EmployeeLeaveTab

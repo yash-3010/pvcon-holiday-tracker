@@ -358,9 +358,11 @@ export function employeeAttendanceSummary(db: DbLike, employeeId: number, month:
     .where(and(eq(attendanceDays.employeeId, employeeId), gte(attendanceDays.date, start), lte(attendanceDays.date, end)))
     .orderBy(desc(attendanceDays.date))
     .all();
+  const settled = rows.filter((r) => !isProvisional(r.date, today, r.status));
   const counts = emptyCounts();
-  for (const r of rows) if (!isProvisional(r.date, today, r.status)) counts[r.status] += 1;
-  return { shift, counts, recent: rows.slice(0, 10) };
+  for (const r of settled) counts[r.status] += 1;
+  const assignedShiftId = db.select({ shiftId: employees.shiftId }).from(employees).where(eq(employees.id, employeeId)).get()?.shiftId ?? null;
+  return { shift, assignedShiftId, counts, recent: settled.slice(0, 10) };
 }
 
 /** Whether `user` may see this employee's attendance: org-wide viewers, or approvers above them. */
@@ -410,4 +412,14 @@ export function attendanceDayDetail(db: DbLike, employeeId: number, date: ISODat
       .map((p) => ({ time: formatHm(minutesInZone(new Date(p.at), timeZone)), direction: p.direction, source: p.source, workMode: p.workMode, note: p.note })),
     holiday: holidaysForEmployee(db, employeeId, date, date)[0]?.name ?? null,
   };
+}
+
+/** Current employees with the shift they are on (null = the default), for the assignment dialog. */
+export function shiftAssignmentOptions(db: DbLike): { id: number; name: string; code: string; shiftId: number | null }[] {
+  return db
+    .select({ id: employees.id, name: employees.displayName, code: employees.employeeCode, shiftId: employees.shiftId })
+    .from(employees)
+    .where(CURRENT)
+    .orderBy(asc(employees.displayName))
+    .all();
 }
