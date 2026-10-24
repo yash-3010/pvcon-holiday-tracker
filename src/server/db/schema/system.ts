@@ -50,6 +50,8 @@ export const notifications = sqliteTable(
      */
     emailStatus: text("email_status", { enum: EMAIL_STATUSES }).notNull().default("skipped"),
     emailAttempts: integer("email_attempts").notNull().default(0),
+    /** When a sender claimed the row (`sending`); a claim much older than a send takes means the sender died. */
+    emailClaimedAt: text("email_claimed_at"),
     emailedAt: text("emailed_at"),
     createdAt: text("created_at").notNull().$defaultFn(nowIso),
   },

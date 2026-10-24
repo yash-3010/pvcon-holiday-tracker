@@ -1,0 +1,1 @@
+ALTER TABLE `notifications` ADD `email_claimed_at` text;

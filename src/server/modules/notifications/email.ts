@@ -7,6 +7,8 @@ import { logger } from "@/server/lib/logger";
 /** Emails older than this are no longer worth sending. */
 const MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
+/** A claim this old belongs to a sender that died (a restart mid-send); its rows go back to the queue. */
+const STUCK_MS = 15 * 60 * 1000;
 
 interface DeliveryOptions {
   now: Date;
@@ -18,10 +20,17 @@ const linkTo = (appUrl: string, link: string | null) => `${appUrl}${link && link
 
 /**
  * Sends the email copies of pending notifications (spec §5.8). Rows are claimed before sending so two senders never
- * send one twice; a failed send goes back to pending, and the third failure gives up. Without SMTP, or for rows older
- * than three days, nothing is sent and the rows are skipped. Returns the number sent.
+ * send one twice; a failed send goes back to pending, and the third failure gives up. Without SMTP, for rows older
+ * than three days, or for users disabled since, nothing is sent and the rows are skipped. Returns the number sent.
  */
 export async function deliverNotificationEmails(db: DbLike, { now, appUrl, limit = 100 }: DeliveryOptions): Promise<number> {
+  // Every action calls this after commit; read before writing so most calls never take SQLite's write lock.
+  if (!db.select({ id: notifications.id }).from(notifications).where(inArray(notifications.emailStatus, ["pending", "sending"])).limit(1).get()) return 0;
+  // A crashed digest's rows come back as pending too and go out on their own: late, but not lost.
+  db.update(notifications)
+    .set({ emailStatus: "pending", emailClaimedAt: null })
+    .where(and(eq(notifications.emailStatus, "sending"), lt(notifications.emailClaimedAt, new Date(now.getTime() - STUCK_MS).toISOString())))
+    .run();
   const cutoff = new Date(now.getTime() - MAX_AGE_MS).toISOString();
   db.update(notifications).set({ emailStatus: "skipped" }).where(and(eq(notifications.emailStatus, "pending"), lt(notifications.createdAt, cutoff))).run();
   if (!isEmailConfigured()) {
@@ -40,12 +49,17 @@ export async function deliverNotificationEmails(db: DbLike, { now, appUrl, limit
   // Claim synchronously, before the first await, so a concurrent sender can't pick the same rows.
   const claimed = db
     .update(notifications)
-    .set({ emailStatus: "sending" })
+    .set({ emailStatus: "sending", emailClaimedAt: now.toISOString() })
     .where(and(inArray(notifications.id, ids), eq(notifications.emailStatus, "pending")))
     .returning()
     .all();
   const emails = new Map(
-    db.select({ id: users.id, email: users.email }).from(users).where(inArray(users.id, [...new Set(claimed.map((n) => n.userId))])).all().map((u) => [u.id, u.email]),
+    db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(and(inArray(users.id, [...new Set(claimed.map((n) => n.userId))]), eq(users.status, "active")))
+      .all()
+      .map((u) => [u.id, u.email]),
   );
 
   let sent = 0;
@@ -80,7 +94,12 @@ export async function deliverDigests(db: DbLike, { now, appUrl }: DeliveryOption
     db.update(notifications).set({ emailStatus: "skipped" }).where(eq(notifications.emailStatus, "digest")).run();
     return 0;
   }
-  const claimed = db.update(notifications).set({ emailStatus: "sending" }).where(eq(notifications.emailStatus, "digest")).returning().all();
+  const claimed = db
+    .update(notifications)
+    .set({ emailStatus: "sending", emailClaimedAt: now.toISOString() })
+    .where(eq(notifications.emailStatus, "digest"))
+    .returning()
+    .all();
   const byUser = new Map<number, typeof claimed>();
   for (const n of claimed.sort((a, b) => a.id - b.id)) byUser.set(n.userId, [...(byUser.get(n.userId) ?? []), n]);
   const accounts = new Map(

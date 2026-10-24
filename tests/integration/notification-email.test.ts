@@ -78,6 +78,21 @@ describe("notification email", () => {
     expect(state.sent).toEqual([]);
   });
 
+  it("puts back rows a crashed sender claimed long ago, and skips users disabled since", async () => {
+    const asha = insertUser(db, { email: "asha@pvcon.in" });
+    const ravi = insertUser(db, { email: "ravi@pvcon.in" });
+    notify(db, { userId: asha.id, type: "leave.approved", title: "Stuck" });
+    notify(db, { userId: asha.id, type: "leave.approved", title: "In flight" });
+    notify(db, { userId: ravi.id, type: "leave.approved", title: "Left" });
+    const ago = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000).toISOString();
+    db.update(notifications).set({ emailStatus: "sending", emailClaimedAt: ago(20) }).where(eq(notifications.title, "Stuck")).run();
+    db.update(notifications).set({ emailStatus: "sending", emailClaimedAt: ago(1) }).where(eq(notifications.title, "In flight")).run();
+    db.update(users).set({ status: "disabled" }).where(eq(users.id, ravi.id)).run();
+    expect(await deliverNotificationEmails(db, opts)).toBe(1);
+    expect(state.sent.map((m) => m.subject)).toEqual(["Stuck"]);
+    expect(statuses()).toEqual([["Stuck", "sent"], ["In flight", "sending"], ["Left", "skipped"]]);
+  });
+
   it("sends a daily digest per user", async () => {
     const user = insertUser(db, { email: "digest@pvcon.in" });
     db.update(users).set({ emailMode: "digest" }).where(eq(users.id, user.id)).run();
