@@ -1,5 +1,5 @@
 import {
-  BadgeCheck, Banknote, Bell, Blocks, Building, Building2, CalendarClock, CalendarCog, CalendarDays, CalendarRange, ClipboardClock,
+  BadgeCheck, Banknote, Bell, ChartColumn, Blocks, Building, Building2, CalendarClock, CalendarCog, CalendarDays, CalendarRange, ClipboardClock,
   ClipboardList, Clock, Contact, FileText, Fingerprint, FolderKanban, Gift, Grid3x3, HandCoins, Handshake, House, IdCard, Inbox,
   Landmark, Layers, ListChecks, Megaphone, Network, PartyPopper, Receipt, ReceiptText, Scale, ScrollText, Shapes, ShieldCheck, Tags, Timer, Upload,
   UserRound, UserRoundCheck, Users, Wallet, type LucideIcon,
@@ -35,6 +35,10 @@ export const NAV: NavGroup[] = [
       },
       { title: "Notifications", href: "/notifications", icon: Bell },
       { title: "Announcements", href: "/announcements", icon: Megaphone },
+      {
+        title: "Reports", href: "/reports", icon: ChartColumn,
+        anyOf: ["report.hr", "report.attendance", "report.leave", "report.timesheet", "report.payroll"],
+      },
     ],
   },
   {

@@ -6,6 +6,7 @@ import { PAYSLIP_STATUS_LABELS } from "@/lib/payroll/constants";
 import type { DbLike } from "@/server/db/client";
 import { employees, payslipLines, payslips, salaryComponents } from "@/server/db/schema";
 import { openBank } from "@/server/modules/employees/sensitive";
+import { safeText } from "@/server/modules/reports/export";
 import { requireRun } from "./inputs";
 
 export interface BankAdviceRow {
@@ -15,12 +16,6 @@ export interface BankAdviceRow {
   account: string | null;
   ifsc: string | null;
   amount: Minor;
-}
-
-/** Text a spreadsheet would read as a formula gets a leading apostrophe. */
-function safeText(value: string | null): string {
-  if (!value) return "";
-  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
 
 /**
