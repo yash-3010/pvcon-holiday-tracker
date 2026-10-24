@@ -3,7 +3,7 @@ import type { DB } from "@/server/db/client";
 import { expenseClaims, leaveRequests, payrollRuns, type EmployeeRow } from "@/server/db/schema";
 import { seedDefaultShift } from "@/server/modules/attendance/shifts";
 import {
-  headcountTrend, joinersLeavers, leaveSnapshot, myPendingRequests, openExitsAndChecklists, payrollStatus, teamLeaveAhead, teamOutToday,
+  headcountTrend, joinersLeavers, leavesToday, leaveSnapshot, myPendingRequests, openExitsAndChecklists, payrollStatus, teamLeaveAhead, teamOutToday,
   upcomingCelebrations,
 } from "@/server/modules/dashboard/queries";
 import { syncEntitlements } from "@/server/modules/leave/ledger";
@@ -48,6 +48,24 @@ describe("employee widgets", () => {
     leave(asha, "2026-11-12");
     expect(teamOutToday(db, asha.id, TODAY).map((a) => a.name)).toEqual(["Boss Test", "Intern Test", "Kiran Test"]);
     expect(teamLeaveAhead(db, boss.id, TODAY, 7).map((a) => [a.name, a.startDate])).toEqual([["Intern Test", TODAY], ["Kiran Test", TODAY], ["Asha Test", "2026-11-12"]]);
+  });
+});
+
+describe("away today", () => {
+  it("lists each person once: a morning and an afternoon request read as a full day", () => {
+    const half = (e: EmployeeRow, code: string, startHalf: "first_half" | "second_half") =>
+      db.insert(leaveRequests).values({
+        employeeId: e.id, leaveTypeId: listLeaveTypes(db).find((t) => t.code === code)!.id, startDate: TODAY, endDate: TODAY, startHalf, endHalf: startHalf,
+        days: 0.5, status: "approved",
+      }).run();
+    half(kiran, "CL", "first_half");
+    half(kiran, "SL", "second_half");
+    half(intern, "CL", "first_half");
+    expect(teamOutToday(db, asha.id, TODAY)).toEqual([
+      { employeeId: intern.id, name: "Intern Test", leaveType: "Casual leave", half: true },
+      { employeeId: kiran.id, name: "Kiran Test", leaveType: "Casual leave + Sick leave", half: false },
+    ]);
+    expect(leavesToday(db, TODAY).map((a) => a.name)).toEqual(["Intern Test", "Kiran Test"]);
   });
 });
 

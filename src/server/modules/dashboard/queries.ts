@@ -94,6 +94,21 @@ function onLeave(db: DbLike, employeeIds: number[], from: ISODate, to: ISODate) 
     .all();
 }
 
+/**
+ * One entry per person away on `today`. Two requests on one day are a morning and an afternoon (overlaps are refused),
+ * so they read as a full day with both types.
+ */
+function awayOn(rows: ReturnType<typeof onLeave>, today: ISODate): AwayToday[] {
+  const byPerson = new Map<number, AwayToday>();
+  for (const { request: r, name, type } of rows) {
+    const half = (r.startDate === today && r.startHalf !== "full") || (r.endDate === today && r.endHalf !== "full");
+    const seen = byPerson.get(r.employeeId);
+    if (!seen) byPerson.set(r.employeeId, { employeeId: r.employeeId, name, leaveType: type, half });
+    else byPerson.set(r.employeeId, { ...seen, leaveType: seen.leaveType === type ? type : `${seen.leaveType} + ${type}`, half: false });
+  }
+  return [...byPerson.values()];
+}
+
 /** Teammates away today: the employee's manager, peers and direct reports on approved leave. */
 export function teamOutToday(db: DbLike, employeeId: number, today: ISODate): AwayToday[] {
   const me = db.select().from(employees).where(eq(employees.id, employeeId)).get();
@@ -114,10 +129,7 @@ export function teamOutToday(db: DbLike, employeeId: number, today: ISODate): Aw
     )
     .all()
     .map((e) => e.id);
-  return onLeave(db, team, today, today).map(({ request: r, name, type }) => ({
-    employeeId: r.employeeId, name, leaveType: type,
-    half: (r.startDate === today && r.startHalf !== "full") || (r.endDate === today && r.endHalf !== "full"),
-  }));
+  return awayOn(onLeave(db, team, today, today), today);
 }
 
 // ── Manager ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -203,10 +215,7 @@ export function joinersLeavers(db: DbLike, period: Period) {
 /** People on approved leave today, company-wide. */
 export function leavesToday(db: DbLike, today: ISODate): AwayToday[] {
   const everyone = db.select({ id: employees.id }).from(employees).where(employedDuring(today, today)).all().map((e) => e.id);
-  return onLeave(db, everyone, today, today).map(({ request: r, name, type }) => ({
-    employeeId: r.employeeId, name, leaveType: type,
-    half: (r.startDate === today && r.startHalf !== "full") || (r.endDate === today && r.endHalf !== "full"),
-  }));
+  return awayOn(onLeave(db, everyone, today, today), today);
 }
 
 /** People serving notice, by last working day, and the count of open onboarding/offboarding checklists. */
