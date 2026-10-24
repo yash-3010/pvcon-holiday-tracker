@@ -1,195 +1,381 @@
-# Deploy — AWS Lightsail
+# Deploying PVCON People
 
-Cheap path: 1 Lightsail Ubuntu instance + Caddy reverse proxy + SQLite + nightly S3 backup.
+PVCON People runs on one AWS Lightsail Ubuntu server:
 
-Estimated cost: **~$5/mo**.
+- **Next.js** (`next start`), kept alive by **pm2**;
+- **Caddy** in front, providing HTTPS;
+- a **SQLite** database file (WAL mode) and an **uploads** folder on the same disk;
+- **cron**, which calls the app's scheduled jobs over HTTP;
+- a nightly backup to **S3**.
 
-## 1. Create instance
+This guide covers:
 
-- AWS Console → Lightsail → Create instance
-- Region: closest to India (e.g. `ap-south-1` Mumbai)
-- Platform: **Linux/Unix**, Blueprint: **OS Only → Ubuntu 22.04 LTS**
-- Plan: **$3.50/mo (512 MB / 2 vCPU / 20 GB)** — sufficient for 5 users
-- Name: `pvcon-holidays`
-- Create static IP and attach (free while attached)
+1. a fresh install;
+2. the jobs, backups and updates;
+3. the one-time move from the old Holiday Tracker (section 9).
 
-Open ports in Lightsail networking: TCP 22, 80, 443.
+Paths below assume the old app's layout on the server:
 
-## 2. DNS
+| | Path / name |
+|---|---|
+| Holiday Tracker checkout | `/var/www/pvcon-holiday-tracker` |
+| Holiday Tracker database | `/var/www/pvcon-holiday-tracker/data/app.db` |
+| Holiday Tracker pm2 process | `pvcon-holidays` |
 
-In your DNS provider for `pvcon.in`:
+The new app gets its own checkout, so the old one stays untouched for a rollback:
 
-```
-A    holidays   <static-ip>
-```
+| | Path / name |
+|---|---|
+| PVCON People checkout | `/var/www/pvcon-people` |
+| pm2 process | `pvcon-people` |
+| Domain | `holidays.pvcon.in` (or a new name such as `people.pvcon.in`: set it in DNS, the Caddyfile and `APP_URL`) |
 
-Wait for propagation.
+## 1. Server
 
-## 3. Provision instance
-
-SSH in:
+- Ubuntu 24.04 LTS (22.04 works too).
+- **2 GB RAM recommended.** `next build` needs more memory than serving does. On a 1 GB plan, add a 2 GB swap file
+  before the first build.
+- Open TCP 22, 80 and 443 in Lightsail networking.
+- Attach a static IP, and point the domain's `A` record at it.
 
 ```bash
-ssh ubuntu@<static-ip>
+# Swap (only on plans under 2 GB)
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
+# Company time zone, so crontab times below are Indian Standard Time
+sudo timedatectl set-timezone Asia/Kolkata
+```
+
+## 2. Software
+
+```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y build-essential git curl unzip ufw
+sudo apt install -y build-essential git curl unzip sqlite3 ufw fail2ban
 
-# Node 20 LTS
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# Node.js 22 LTS (Next.js 16 needs Node 20.9 or later)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
-
-# pm2 process manager
 sudo npm i -g pm2
 
-# Caddy (auto HTTPS)
+# Caddy
 sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-sudo apt update
-sudo apt install -y caddy
+sudo apt update && sudo apt install -y caddy
 
-# AWS CLI for backups
-sudo apt install -y awscli
+# AWS CLI v2 (backups)
+curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+unzip -q /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install
 ```
 
-## 4. Deploy app
+`better-sqlite3` is a native module: always run `npm ci` on the server. Never copy `node_modules` from another machine.
+
+## 3. Code and configuration
 
 ```bash
 sudo mkdir -p /var/www && sudo chown ubuntu:ubuntu /var/www
 cd /var/www
-git clone <your-repo-url> pvcon-holiday-tracker
-cd pvcon-holiday-tracker
-npm ci
-npm run build
-
-# generate strong secret
-echo "AUTH_SECRET=$(openssl rand -base64 32)" > .env.local
-echo "AUTH_TRUST_HOST=true" >> .env.local
-echo "DB_FILE=/var/www/pvcon-holiday-tracker/data/app.db" >> .env.local
-echo "DATABASE_URL=file:/var/www/pvcon-holiday-tracker/data/app.db" >> .env.local
-echo "ALLOWED_EMAIL_DOMAIN=pvcon.in" >> .env.local
-echo "NODE_ENV=production" >> .env.local
-echo "PORT=3000" >> .env.local
-
-mkdir -p data
-npm run db:migrate
-# Seed only on first deploy, with the xlsx uploaded:
-# scp -i key.pem 'PVCON Leave Tracker 2026.xlsx' ubuntu@<ip>:/tmp/seed.xlsx
-# SEED_XLSX=/tmp/seed.xlsx npm run db:seed
-
-# start
-pm2 start "npm run start" --name pvcon-holidays
-pm2 save
-pm2 startup systemd -u ubuntu --hp /home/ubuntu | tail -1 | sudo bash
+git clone <repository-url> pvcon-people
+cd pvcon-people
+git checkout main            # or the release branch/tag being deployed
+cp .env.example .env.local
+chmod 600 .env.local
 ```
 
-## 5. Caddy reverse proxy + auto HTTPS
+Fill `.env.local`. Next.js and the `npm run db:*` scripts both read it.
+
+| Variable | Value |
+|---|---|
+| `AUTH_SECRET` | `openssl rand -base64 32` |
+| `AUTH_TRUST_HOST` | `true` (Caddy is the only way in) |
+| `DB_FILE` | `/var/www/pvcon-people/data/people.db`. Never the Holiday Tracker's `app.db`. |
+| `ALLOWED_EMAIL_DOMAIN` | `pvcon.in` |
+| `APP_URL` | `https://holidays.pvcon.in`, used for links in emails and payslip QR codes |
+| `DATA_ENCRYPTION_KEY` | `openssl rand -base64 32`. **Back it up separately** (password manager): without it, bank and ID numbers in backups can't be read. Never change it once data exists. |
+| `CRON_SECRET` | `openssl rand -hex 32`, also used by the cron script (section 6) |
+| `UPLOAD_DIR` | `/var/www/pvcon-people/data/uploads`: documents, receipts, logos and released payslip PDFs |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Mail server. Without it, emails are skipped and logged. Check it under Settings → Email ("Send a test email"). |
+| `PAYSLIP_SIGN_P12_PATH`, `PAYSLIP_SIGN_P12_PASSWORD` | Optional: a `.p12` certificate to sign payslip PDFs. Keep the file outside the checkout, readable by `ubuntu` only. |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | First super admin for a fresh install (forced password change at first sign-in) |
+| `LOG_LEVEL` | `info` |
+| `PORT` | `3000` |
+
+## 4. Fresh install (no Holiday Tracker data)
+
+For a move from the Holiday Tracker, follow section 9 instead.
+
+```bash
+cd /var/www/pvcon-people
+npm ci
+npm run build
+mkdir -p data/uploads
+npm run db:migrate
+npm run db:seed
+
+pm2 start npm --name pvcon-people -- start
+pm2 save
+pm2 startup systemd -u ubuntu --hp /home/ubuntu | tail -1 | sudo bash   # start on boot
+pm2 install pm2-logrotate                                               # keep logs bounded
+```
+
+## 5. Caddy
 
 ```bash
 sudo tee /etc/caddy/Caddyfile > /dev/null <<'EOF'
 holidays.pvcon.in {
-    reverse_proxy 127.0.0.1:3000
     encode gzip
+    header Strict-Transport-Security "max-age=31536000"
+    reverse_proxy 127.0.0.1:3000
 }
 EOF
-
-sudo systemctl restart caddy
+sudo systemctl reload caddy
 ```
 
-Caddy fetches Let's Encrypt cert automatically. Browse `https://holidays.pvcon.in`.
+Caddy gets and renews the Let's Encrypt certificate itself. The app sets its own security headers (CSP, frame and
+content-type options).
 
-## 6. Backups (S3, ~$0.01/mo)
+## 6. Scheduled jobs
 
-Create S3 bucket `pvcon-holidays-backup` in same region. Lifecycle: expire after 90 days.
-
-IAM user with `s3:PutObject` on the bucket. Configure on instance:
-
-```bash
-aws configure   # paste access key + secret + region
-```
-
-Backup script:
+Jobs are triggered by `POST /api/cron/<job>` with `Authorization: Bearer $CRON_SECRET`. Each run is recorded under a
+run key (a day, a week, a month or a leave year), so calling a job again for the same key does nothing. The crontab can
+therefore call monthly and yearly jobs every night: they act only once per period. Results show under
+Settings → Jobs, which can also run any job by hand.
 
 ```bash
-sudo tee /usr/local/bin/pvcon-backup.sh > /dev/null <<'EOF'
-#!/bin/bash
-set -e
-DATE=$(date +%F)
-DB=/var/www/pvcon-holiday-tracker/data/app.db
-TMP=/tmp/app-$DATE.db
-sqlite3 "$DB" ".backup $TMP"
-gzip "$TMP"
-aws s3 cp "$TMP.gz" "s3://pvcon-holidays-backup/$DATE.db.gz"
-rm -f "$TMP.gz"
+sudo mkdir -p /etc/pvcon
+sudo tee /etc/pvcon/cron.env > /dev/null <<EOF
+CRON_SECRET=$(grep ^CRON_SECRET= /var/www/pvcon-people/.env.local | cut -d= -f2-)
+APP_INTERNAL_URL=http://127.0.0.1:3000
 EOF
-sudo chmod +x /usr/local/bin/pvcon-backup.sh
-sudo apt install -y sqlite3
+sudo chmod 600 /etc/pvcon/cron.env && sudo chown ubuntu:ubuntu /etc/pvcon/cron.env
 
-# Daily 2am UTC
-( sudo crontab -l 2>/dev/null; echo "0 2 * * * /usr/local/bin/pvcon-backup.sh >> /var/log/pvcon-backup.log 2>&1" ) | sudo crontab -
+sudo tee /usr/local/bin/pvcon-job > /dev/null <<'EOF'
+#!/bin/bash
+# Usage: pvcon-job <job-name>. Calls the app on localhost, bypassing Caddy.
+set -uo pipefail
+source /etc/pvcon/cron.env
+echo "$(date -Is) $1 $(curl -sS -m 600 -X POST -H "Authorization: Bearer $CRON_SECRET" "$APP_INTERNAL_URL/api/cron/$1")"
+EOF
+sudo chmod 755 /usr/local/bin/pvcon-job
+sudo touch /var/log/pvcon-jobs.log && sudo chown ubuntu:ubuntu /var/log/pvcon-jobs.log
 ```
 
-## 7. Updates
+`crontab -e` as `ubuntu` (times are IST, from step 1):
+
+```cron
+# PVCON People jobs (each acts once per run key; see Settings > Jobs)
+*/10 * * * * /usr/local/bin/pvcon-job notifications:send          >> /var/log/pvcon-jobs.log 2>&1
+5 0 * * *    /usr/local/bin/pvcon-job attendance:close-day        >> /var/log/pvcon-jobs.log 2>&1
+15 0 * * *   /usr/local/bin/pvcon-job employee:lifecycle          >> /var/log/pvcon-jobs.log 2>&1
+20 0 * * *   /usr/local/bin/pvcon-job compoff:expire              >> /var/log/pvcon-jobs.log 2>&1
+25 0 * * *   /usr/local/bin/pvcon-job leave:year-end              >> /var/log/pvcon-jobs.log 2>&1
+30 0 * * *   /usr/local/bin/pvcon-job leave:accrue                >> /var/log/pvcon-jobs.log 2>&1
+45 2 * * *   /usr/local/bin/pvcon-job system:cleanup              >> /var/log/pvcon-jobs.log 2>&1
+0 9 * * *    /usr/local/bin/pvcon-job notifications:digest        >> /var/log/pvcon-jobs.log 2>&1
+30 9 * * 1   /usr/local/bin/pvcon-job timesheet:remind-approvers  >> /var/log/pvcon-jobs.log 2>&1
+0 16 * * 5   /usr/local/bin/pvcon-job timesheet:remind-employees  >> /var/log/pvcon-jobs.log 2>&1
+30 2 * * *   /usr/local/bin/pvcon-backup                          >> /var/log/pvcon-backup.log 2>&1
+```
+
+| Job | What it does |
+|---|---|
+| `notifications:send` | Publishes scheduled announcements and emails notifications not yet sent |
+| `attendance:close-day` | Closes yesterday: auto clock-out, computes everyone's attendance, invites comp-off claims |
+| `employee:lifecycle` | Marks people past their last working day as exited, and reminds HR about probations ending |
+| `compoff:expire` | Lapses expired comp-off, and warns a week before expiry |
+| `leave:year-end` | Once a leave year: carries forward up to each type's cap, lapses the rest, and grants the new year |
+| `leave:accrue` | Once a month: monthly accruals and any missing annual grants |
+| `system:cleanup` | Old reset tokens, read notifications over 90 days, and old runs of the 10-minute job |
+| `notifications:digest` | The daily digest email for people who chose it |
+| `timesheet:remind-approvers` | Monday: managers with submitted timesheets waiting |
+| `timesheet:remind-employees` | Friday: people who haven't submitted this week |
+
+Rotate `/var/log/pvcon-*.log` with logrotate, or truncate them now and then.
+
+## 7. Backups and restore
+
+A backup holds three things:
+
+- the database, as a consistent copy made with `sqlite3 .backup`, which is safe while the app runs;
+- the uploads folder (payslip PDFs are kept byte for byte, and verification relies on them);
+- `.env.local`, encrypted. The `DATA_ENCRYPTION_KEY` should also be kept apart from the backups.
+
+Create an S3 bucket (for example `pvcon-people-backup`, region `ap-south-1`) with:
+
+- default encryption;
+- a lifecycle rule that expires objects after 90 days;
+- an IAM user that may only `s3:PutObject` to it.
+
+Run `aws configure` on the server with that user's key.
 
 ```bash
-cd /var/www/pvcon-holiday-tracker
-git pull
+sudo tee /usr/local/bin/pvcon-backup > /dev/null <<'EOF'
+#!/bin/bash
+set -euo pipefail
+APP=/var/www/pvcon-people
+BUCKET=s3://pvcon-people-backup
+STAMP=$(date +%F)
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+DB=$(grep ^DB_FILE= "$APP/.env.local" | cut -d= -f2-)
+UPLOADS=$(grep ^UPLOAD_DIR= "$APP/.env.local" | cut -d= -f2-)
+sqlite3 "$DB" ".backup '$WORK/people.db'"
+sqlite3 "$WORK/people.db" "pragma integrity_check" | grep -qx ok
+gzip "$WORK/people.db"
+tar -czf "$WORK/uploads.tar.gz" -C "$(dirname "$UPLOADS")" "$(basename "$UPLOADS")"
+aws s3 cp "$WORK/people.db.gz" "$BUCKET/$STAMP/people.db.gz" --only-show-errors
+aws s3 cp "$WORK/uploads.tar.gz" "$BUCKET/$STAMP/uploads.tar.gz" --only-show-errors
+echo "$(date -Is) backup $STAMP ok"
+EOF
+sudo chmod 755 /usr/local/bin/pvcon-backup
+sudo touch /var/log/pvcon-backup.log && sudo chown ubuntu:ubuntu /var/log/pvcon-backup.log
+/usr/local/bin/pvcon-backup        # run once now and check the bucket
+```
+
+Restore a day's backup, as `ubuntu`:
+
+```bash
+pm2 stop pvcon-people
+cd /var/www/pvcon-people/data
+mv people.db people.db.broken; rm -f people.db-wal people.db-shm
+aws s3 cp s3://pvcon-people-backup/2026-11-02/people.db.gz . && gunzip people.db.gz
+mv uploads uploads.broken
+aws s3 cp s3://pvcon-people-backup/2026-11-02/uploads.tar.gz - | tar -xz -C .
+cd .. && npm run db:migrate && pm2 start pvcon-people
+curl -s http://127.0.0.1:3000/api/health
+```
+
+Rehearse a restore onto a scratch directory every few months.
+
+## 8. Updates
+
+```bash
+cd /var/www/pvcon-people
+/usr/local/bin/pvcon-backup          # a fresh backup before every update
+git fetch && git checkout <tag-or-branch> && git pull --ff-only
 npm ci
 npm run build
-npm run db:migrate
-pm2 reload pvcon-holidays
+npm run db:migrate                   # new migrations only; refuses to touch a Holiday Tracker database
+pm2 reload pvcon-people
+curl -s http://127.0.0.1:3000/api/health   # {"status":"ok"} with database, migrations and storage "ok"
 ```
 
-Optional: GitHub Actions deploy workflow on push to `main` running the above via SSH.
+If the build fails, the running process is unaffected. Fix the problem, or check out the previous tag and rebuild.
 
-## 8. Hardening
+## 9. Moving from the Holiday Tracker (one time)
 
-```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 80
-sudo ufw allow 443
-sudo ufw enable
-```
+The old database is **never upgraded in place**. `npm run db:migrate-legacy` reads it read-only and builds a new file.
+It copies:
 
-Fail2ban for SSH:
-
-```bash
-sudo apt install -y fail2ban
-sudo systemctl enable --now fail2ban
-```
-
-## 9. Initial accounts (after seed)
-
-| Email | Password | Role |
-|---|---|---|
-| admin@pvcon.in | Pvcon@1234 | admin |
-| yash@pvcon.in | Pvcon@1234 | employee |
-| sonam@pvcon.in | Pvcon@1234 | employee |
-| raj@pvcon.in | Pvcon@1234 | employee |
-| almas@pvcon.in | Pvcon@1234 | employee |
-
-All forced to change password on first login.
-
-## 10. Moving the data to PVCON People (preview)
-
-The HRMS rebuild (`feat/hrms-overhaul`) uses a new database file. It never upgrades the Holiday Tracker database in
-place: `npm run db:migrate` refuses to touch it. Phase 6 replaces this section with the full cutover runbook. Until
-then, the migration can be rehearsed on a copy:
-
-```bash
-# On a copy of production data, never the live file
-sqlite3 /var/www/pvcon-holiday-tracker/data/app.db ".backup /tmp/app-copy.db"
-
-npm run db:migrate-legacy -- --from /tmp/app-copy.db --to /tmp/people.db
-```
-
-The script opens the old file read-only and builds `--to` from scratch:
-- users and roles, with old passwords still working;
-- employee records with codes PV0001…;
+- users (old passwords keep working), with super admins for old admins;
+- employee records `PV0001…`;
 - holidays and optional picks;
-- leave types from the latest policy year;
-- every leave as a request plus a ledger entry.
+- leave types from the latest policy;
+- every leave, as a request plus ledger entries;
+- attendance history in auto mode.
 
-It then compares every employee/year balance with the old app's calculation (casual, sick, unpaid and optional
-holidays). It prints a summary and exits non-zero if any balance differs; the new file is kept for inspection.
+It then checks every employee's balance for every year against the old app's own calculation: casual, sick, unpaid and
+optional. It exits non-zero on any difference. Years the old app had already closed stay closed, so the
+`leave:year-end` job doesn't carry them forward twice.
+
+### 9.1 Rehearse (days before)
+
+Do sections 1–3 and the build from section 4 in `/var/www/pvcon-people`. Do not seed and do not start pm2 yet. Then:
+
+```bash
+cd /var/www/pvcon-people
+sqlite3 /var/www/pvcon-holiday-tracker/data/app.db ".backup /tmp/app-rehearsal.db"
+npm run db:migrate-legacy -- --from /tmp/app-rehearsal.db --to /tmp/people-rehearsal.db
+```
+
+Expect `Verification passed`. If it fails, the table shows which balances differ, and the new file is kept for
+inspection. Don't go live until it passes.
+
+To try the rehearsal copy in a browser, without touching the live site:
+
+```bash
+DB_FILE=/tmp/people-rehearsal.db UPLOAD_DIR=/tmp/uploads-rehearsal PORT=3001 npm run start
+# from your machine: ssh -L 3001:127.0.0.1:3001 ubuntu@<server>, then open http://localhost:3001
+```
+
+Sign in with an old account and compare a few people's leave balances with the old app. Then stop it with Ctrl+C and
+delete the `/tmp` files.
+
+### 9.2 Go live (about 30 minutes, out of hours)
+
+1. Tell everyone the old app is going away, and when.
+2. Stop the old app and take a final copy:
+   ```bash
+   pm2 stop pvcon-holidays
+   mkdir -p ~/cutover
+   sqlite3 /var/www/pvcon-holiday-tracker/data/app.db ".backup $HOME/cutover/app-final.db"
+   aws s3 cp ~/cutover/app-final.db s3://pvcon-people-backup/cutover/app-final.db
+   ```
+3. Build the new database (the target must not exist yet):
+   ```bash
+   cd /var/www/pvcon-people && mkdir -p data/uploads
+   npm run db:migrate-legacy -- --from ~/cutover/app-final.db --to /var/www/pvcon-people/data/people.db
+   ```
+   It must end with `Verification passed`. If it doesn't, go to **Roll back** below.
+4. Check that `DB_FILE` in `.env.local` points at that new file. Then:
+   ```bash
+   npm run db:migrate    # no-op: the migration already applied them
+   npm run db:seed       # adds defaults; creates SEED_ADMIN_EMAIL only if it doesn't exist yet
+   ```
+5. Start the new app on the same port, and keep the old process stopped but defined:
+   ```bash
+   pm2 start npm --name pvcon-people -- start && pm2 save
+   ```
+6. Install the crontab (section 6) and the backup (section 7). Remove the old app's backup line from root's crontab
+   (`sudo crontab -e`).
+7. Smoke test (section 9.3).
+8. In the app, as a super admin:
+   - **Time → Shifts:** migrated people are on the General shift in `auto` mode (present unless on leave, a holiday
+     or a weekly off). Switch it to `punch` on the day staff start clocking in. A shift change rebuilds only today, so
+     earlier days stay as they are.
+   - **Settings → Company / Payroll / Email:** company details, payslip settings and a test email.
+   - **Organization → Employees:** add departments, managers, bank details and salaries before the first payroll run.
+
+### 9.3 Smoke test
+
+- `curl -s http://127.0.0.1:3000/api/health` returns `"status":"ok"`.
+- `https://<domain>` loads with a valid certificate. The app installs from the browser menu (web manifest).
+- An old employee account signs in with its old password and sees the same leave balances as before.
+- A super admin opens Settings → Jobs and runs `notifications:send`, which succeeds.
+- A leave request and its approval work, and the approver gets a notification (and an email with SMTP set up).
+- `/usr/local/bin/pvcon-backup` succeeds and the files appear in S3.
+
+### 9.4 Roll back
+
+The old app and its database were never modified, so going back only means starting it again:
+
+```bash
+pm2 stop pvcon-people
+pm2 start pvcon-holidays && pm2 save
+```
+
+Leave changes made in the new app since go-live are not copied back. Note them before rolling back. To retry later,
+move `data/people.db*` aside and start again from 9.2.
+
+## 10. Hardening
+
+```bash
+sudo ufw allow OpenSSH && sudo ufw allow 80 && sudo ufw allow 443 && sudo ufw enable
+sudo systemctl enable --now fail2ban
+chmod 700 /var/www/pvcon-people/data
+```
+
+- Use SSH key sign-in only (`PasswordAuthentication no` in `/etc/ssh/sshd_config`).
+- Apply security updates (`unattended-upgrades` is on by default in Ubuntu).
+- Port 3000 is not exposed: only Caddy is.
+
+## 11. Troubleshooting
+
+| Symptom | Look at |
+|---|---|
+| Site down | `pm2 status`, `pm2 logs pvcon-people --lines 200` (JSON logs; errors carry a reference shown to the user) |
+| `/api/health` 503 | `checks.migrations` pending: run `npm run db:migrate`. `storage`: permissions on `data/`. |
+| No emails | Settings → Email: server status, outbox counts, test email |
+| A job didn't run | Settings → Jobs (last run and its detail), `/var/log/pvcon-jobs.log`, `crontab -l` |
+| HTTPS problems | `journalctl -u caddy --since today` |
