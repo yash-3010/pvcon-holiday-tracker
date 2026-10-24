@@ -31,7 +31,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 | 2 Leave, holidays, legacy migration | `2026-10-23-phase-2-leave-holidays.md` | ☑ done (05b006a) |
 | 3 Attendance + comp-off | `2026-10-24-phase-3-attendance-compoff.md` | ☑ done (f3684ce) |
 | 4 Timesheets | `2026-10-24-phase-4-timesheets.md` | ☑ done (ad47353) |
-| 5 Payroll + payslips | `2026-10-24-phase-5-payroll.md` | ◐ in progress (plan written) |
+| 5 Payroll + payslips | `2026-10-24-phase-5-payroll.md` | ☑ done (529e453) |
 | 6 Insight, notifications, polish, deploy | to be written | ☐ not started |
 
 Status values: ☐ not started · ◐ in progress (note last finished task) · ☑ done (note commit hash).
@@ -191,6 +191,48 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
 56. **Projects.** Budget burn counts submitted and approved hours, with drafts shown apart. `project.manage` edits
     projects, clients and categories; `timesheet.view.all` reads projects. The project manager field is informational.
     The profile Timesheets tab shows to the employee, managers above them and `timesheet.view.all`.
+57. **`claim.view.all`** (HR and payroll admins) reads every claim and its receipt. With `claim.approve`, HR admins are
+    org-wide claim approvers; payroll admins read claims but don't decide them. Claim routing is `CLAIM_APPROVAL`.
+58. **System components.** `REIMB` (approved claims) and `LOAN_EMI` (loan EMIs) receive the run's own inputs and can't be
+    archived or retyped. Other one-time amounts go to `input` components such as `BONUS` and `OTHER_DEDUCTION`.
+59. **Payouts are formulas.** `COMP_OFF_PAY = COMP_OFF_DAYS * MONTHLY_CTC / 30` (approved payout claims not yet paid)
+    and `LEAVE_ENCASH = ENCASH_DAYS * BASIC_RATE / 30` (encashable leave left on a last working day inside the period).
+    Year-end encashment of excess leave still lapses.
+60. **`in_ctc`.** The `balance` component completes the monthly CTC with the earnings and employer contributions marked
+    as part of it; payouts and per-run inputs sit outside the CTC.
+61. **Half-day leave and loss of pay.** A `half_leave` day costs its leave half when that leave is unpaid, plus 0.5 when
+    the other half wasn't worked on a punch shift (it can't be told on auto shifts).
+62. **Paid markers.** Approval sets `paid_run_id` on the expense claims and comp-off payout claims it pays (claims also
+    become `paid`); revert clears them. A payslip counts the payout claims decided by the period end and before the
+    compute.
+63. **Arrears.** Payslips keep the salary they were computed with (`salary_id`) and the one arrears have since paid them up
+    to (`paid_basis_salary_id`, from the arrear inputs' `salary_id`). A revision payroll has used is never changed: a
+    correction for the same month adds a row and the later row wins (migration 0006 drops the unique month index).
+    Arrears go to employees in the new run's period; a negative difference recovers an overpayment, and capping never
+    raises a negative deduction.
+64. **Runs.** One live regular run per period, in order, at most a month ahead; the very first can be any month.
+    Changing a computed run's inputs (or the status of a loan in it) sends it back to draft, so a stale computation
+    can't be approved. Approval refuses payslips with errors; an error payslip is excluded until it computes.
+    Revert needs a note and no later live regular run. Rights: create, compute, inputs, hold/exclude, mark paid and
+    exports `payroll.run`; approve `payroll.approve`; release `payroll.release`; revert super admin.
+65. **Computing a run keeps computed attendance.** It computes only the period's days without a row and today's
+    provisional one. Days already computed keep the shift rules they were computed with, so a switch from auto to punch
+    mode after the legacy cutover never turns earlier days into loss of pay.
+66. **Off-cycle runs** pay manual inputs only, with no attendance or salary components; their payslips have no
+    `salary_id`.
+67. **Payslip PDFs** (`@react-pdf/renderer`, built-in Helvetica, "Amounts in INR" instead of the ₹ sign, which the font
+    lacks; names outside Latin-1 don't render). Release renders and signs in the action's `prepare`, then stores each
+    PDF once with its SHA-256 in the transaction. Signing uses `@signpdf/signpdf` and `@signpdf/signer-p12` pinned to
+    3.3.0 (3.4.0 and 4.0.0 were days old) with a signature placeholder written with `@cantoo/pdf-lib`; the placeholder
+    packages pull in `pdfkit` 0.10 and `crypto-js` with critical advisories. `node-forge`'s advisory concerns verifying
+    signatures, which isn't used. Emailed protected copies are never signed.
+68. **Who sees a payslip.** The employee once released; `payroll.run` and `salary.view` holders always (before release
+    as a DRAFT preview, never stored). Stored PDFs follow the same rule through `/api/files`.
+69. **Verification codes** are 12 characters from an alphabet without look-alikes. Lookups of unknown codes aren't
+    logged (there is no payslip to link them to).
+70. **Exports.** The bank advice lists included payslips with the employee's current, full bank account; held and
+    excluded ones aren't paid yet. The register has a column per component, with arrears and claims apart. Text a
+    spreadsheet would read as a formula is escaped. Every export is audited as `payroll.export`.
 
 ## Cross-phase integration map
 
@@ -204,12 +246,14 @@ Build each phase so these seams exist. Later phases consume them.
 | Phase 2 leave | approved `leave_requests` (status, days, halves, `is_lop` type) + `onLeaveChanged(tx, employeeId, from, to)` in `attendance/hooks.ts` | attendance (3), timesheets (4), payroll LOP (5) |
 | Phase 2 leave | `postLedger`, `balanceOf`, `syncEntitlements`, `canDecideLeave`, the CO type (`compOffType`) | comp-off credits/FIFO (3), encashment (5) |
 | Phase 2 holidays | `holidaysForEmployee(db, employeeId, from, to)`, `holidayDatesForEmployee`, `onHolidayChanged(tx, date)`; `weeklyOffsForEmployee` in `attendance/calendar.ts` | attendance, leave day count, timesheets, payroll working days |
-| Phase 3 attendance | `attendance_days` rows (`isProvisional` for today) + `recomputeAttendance(db, employeeId, from, to, { now })`, `fillMissingAttendance(db, from, to)`; payroll should fill and recompute the unlocked days of a period before reading it | comp-off (3), timesheet reconciliation (4), payroll (5), reports (6) |
+| Phase 3 attendance | `attendance_days` rows (`isProvisional` for today) + `recomputeAttendance(db, employeeId, from, to, { now })`, `fillMissingAttendance(db, from, to, { employeeIds })`; payroll fills a period's missing days and today's row before reading it (refinement 65) | comp-off (3), timesheet reconciliation (4), payroll (5), reports (6) |
 | Phase 3 attendance | `shiftForEmployee`, `shiftRules`, `weeklyOffsForEmployee` (shift-based) | timesheets available hours (4), payroll working days (5) |
 | Phase 3 comp-off | CO leave type + `comp_off_lots` FIFO consume/restore on leave approve/cancel; `compOffAvailable(db, employeeId, onDate)` | leave (2 hooks), encashment (5) |
 | Phase 3 comp-off | approved claims with `resolution = 'payout'` (no lot) | payroll payout (5) |
 | Phase 4 timesheets | `workCalendar(db, employeeId, from, to)` / `availableMinutes` (`timesheets/availability.ts`), `utilization()` (`src/lib/timesheets.ts`), `timesheet_entries` joined with `timesheets.status` (approved = final), `projectDetail` budget burn | reports and dashboards (6) |
 | Phase 5 payroll | approval sets `attendance_days.locked` for the period; recompute, regularization, overrides and leave hooks already skip locked days | attendance edits (3) |
+| Phase 5 payroll | released `payslips` + `payslip_lines` (per component, kind, source), `listRuns`, `runDetail` (variance), `myYearStatement`, `registerXlsx`, `listSalaries`, `listLoans`, `listClaims` (`payroll/queries.ts`, `payroll/exports.ts`) | payroll reports and dashboards (6) |
+| Phase 5 payroll | notifications `payslip.released`, `claim.submitted`/`approved`/`rejected`; `emailPayslips` | notification preferences (6) |
 | Phase 0 | `notify()`, `writeAudit()`, `defineAction`, `runJob()`, `saveUpload()`, `canAccessFile()`, `getSetting()` | all phases |
 
 Phase 2 is built before Phase 3, so it defines an attendance-recompute hook interface that is a no-op until

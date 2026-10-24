@@ -53,8 +53,8 @@ npm run verify         # typecheck + lint + test + build — must be green befor
 Next.js 16 (App Router, Turbopack) · React 19 · TypeScript strict · Tailwind v4 · Radix (`radix-ui`
 monopackage) · cva · `@tanstack/react-table` v8 · react-hook-form + zod v4 · sonner · cmdk · next-themes ·
 recharts · SQLite (better-sqlite3, WAL) + Drizzle ORM 0.45 · Auth.js v5 beta (Credentials, JWT) · bcryptjs ·
-pino · nodemailer · vitest · Playwright. Later phases add @react-pdf/renderer, qrcode, @signpdf/*,
-@cantoo/pdf-lib, exceljs, papaparse.
+pino · nodemailer · papaparse · vitest · Playwright. Payroll adds @react-pdf/renderer, qrcode, @signpdf/signpdf and
+@signpdf/signer-p12 (pinned to 3.3.0, with node-forge), @cantoo/pdf-lib and exceljs.
 
 ## Architecture rules
 
@@ -123,6 +123,20 @@ pino · nodemailer · vitest · Playwright. Later phases add @react-pdf/renderer
   - A row is (project, task category); saving replaces the week's entries. Only `draft` and `rejected` weeks change.
   - Who may log to a project comes from `allowedProjects()`; available hours from `workCalendar()` /
     `availableMinutes()`, never from the shift or leave tables directly.
+- **Payroll**
+  - Amounts are paise; formulas work in rupees (`src/lib/payroll/formula/*`, a hand-written parser with whitelisted
+    names and functions). `calculatePayslip` (`src/lib/payroll/calculate.ts`) is pure and also runs in the browser
+    for previews.
+  - Salary revisions start on the 1st of a month. A revision payroll has used is never changed; a correction adds a
+    row, and the next run pays arrears.
+  - Run lifecycle (`payroll/runs.ts`): draft → computed → approved → released → paid. The approver must differ from
+    whoever last computed the run. Approval locks the period's attendance and pays claims, loans, comp-off payouts and
+    arrears; revert undoes exactly that. Changing a computed run's inputs sends it back to draft.
+  - Released payslips never change: their PDF is stored once with its SHA-256 and served byte for byte. Corrections go
+    through the next period.
+  - PDF rendering, signing and encryption are async: render in an action's `prepare` (`prepareRelease`), store in the
+    handler (`releaseRun`), email in `after`. Forms whose zod schema converts rupees to paise submit
+    `form.getValues()` (the raw input), because the action parses again.
 - **Sensitive employee data**
   - Bank account and ID numbers are stored with `sealBank()` and shown with `bankView(source, reveal)`
     (`src/server/modules/employees/sensitive.ts`). `reveal` only for `employee.sensitive.view`.
@@ -175,7 +189,9 @@ pino · nodemailer · vitest · Playwright. Later phases add @react-pdf/renderer
 - E2E specs run alphabetically and share one database. `auth.spec.ts` must run first because it changes the seed admin
   password, so name new specs to sort after it.
 - The login limiter allows 20 sign-ins per 15 minutes per client IP, and a password change signs in again. Give each
-  spec its own address with `test.use(clientIp(n))`, and pass it to any `browser.newContext()` too.
+  spec its own address with `test.use(clientIp(n))`, and pass it to any `browser.newContext()` too. Taken: auth 1,
+  core-hr 2, leave 3, time-attendance 4, timesheets 5, payroll 6. Specs share the database, so use names and emails no
+  other spec uses.
 
 ## Environment
 

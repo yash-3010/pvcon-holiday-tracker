@@ -124,7 +124,7 @@ and claim notifications), §5.11 (payroll settings).
     10 000 nested parentheses → each a `FormulaError`, none throws anything else;
   - cycle detection.
 
-- [ ] Commit `feat(payroll): add the formula engine`
+- [x] Commit `feat(payroll): add the formula engine`
 
 ### Task 2: Constants, money in words, validation
 
@@ -159,7 +159,7 @@ and claim notifications), §5.11 (payroll settings).
 - **Tests:** a code that clashes with `PAID_DAYS` or ends in `_RATE`; percent without a base; a salary on the 15th;
   amounts in words for 0, 1 paisa, 1,00,000 and 12,34,56,789.50.
 
-- [ ] Commit `feat(payroll): add payroll constants, validation and amounts in words`
+- [x] Commit `feat(payroll): add payroll constants, validation and amounts in words`
 
 ### Task 3: Schema and migration
 
@@ -180,7 +180,7 @@ and claim notifications), §5.11 (payroll settings).
 - **Tests:** tables exist; one regular run per period (a cancelled one doesn't count); cascades from runs to payslips,
   lines and inputs.
 
-- [ ] Commit `feat(db): add payroll schema`
+- [x] Commit `feat(db): add payroll schema`
 
 ### Task 4: The payslip calculator
 
@@ -227,7 +227,7 @@ and claim notifications), §5.11 (payroll settings).
   - divide by zero → an error;
   - a cycle → an error.
 
-- [ ] Commit `feat(payroll): add the payslip calculator`
+- [x] Commit `feat(payroll): add the payslip calculator`
 
 ### Task 5: Loss-of-pay days
 
@@ -243,7 +243,7 @@ and claim notifications), §5.11 (payroll settings).
 - `PAID_DAYS = max(0, TOTAL_DAYS − LOP_DAYS)`; `PRESENT_DAYS` = present 1, half_day/half_leave 0.5.
 - **Tests:** one per rule, both bases, a joiner on the 10th, an exit on the 20th.
 
-- [ ] Commit `feat(payroll): add loss-of-pay day rules`
+- [x] Commit `feat(payroll): add loss-of-pay day rules`
 
 ### Task 6: Components and structures
 
@@ -271,7 +271,7 @@ and claim notifications), §5.11 (payroll settings).
 - **Tests:** a cycle across two formulas refused; two balances refused; an unknown identifier refused; the seed runs
   twice; the preview for 12 L.
 
-- [ ] Commit `feat(payroll): add salary components and structures`
+- [x] Commit `feat(payroll): add salary components and structures`
 
 ### Task 7: Employee salaries
 
@@ -288,7 +288,7 @@ and claim notifications), §5.11 (payroll settings).
 - **Tests:** the effective salary switches on the effective month; a mid-month date refused; the event is recorded;
   an override on a code not in the structure refused.
 
-- [ ] Commit `feat(payroll): add salary revisions`
+- [x] Commit `feat(payroll): add salary revisions`
 
 ### Task 8: Period summary and variables
 
@@ -309,7 +309,7 @@ and claim notifications), §5.11 (payroll settings).
 - **Tests:** a month with 2 absences and an LOP leave; the working basis; a future-dated computation projects the rest
   of the month as present; an unpaid comp-off payout counts once.
 
-- [ ] Commit `feat(payroll): summarise attendance for a pay period`
+- [x] Commit `feat(payroll): summarise attendance for a pay period`
 
 ### Task 9: Payroll runs — create, inputs, compute
 
@@ -342,7 +342,7 @@ and claim notifications), §5.11 (payroll settings).
 - **Tests:** the order rule; inputs; a compute for three employees (a joiner, an LOP, a missing salary); recompute
   keeps hold; an off-cycle bonus run.
 
-- [ ] Commit `feat(payroll): create and compute payroll runs`
+- [x] Commit `feat(payroll): create and compute payroll runs`
 
 ### Task 10: Approve, revert, release, paid, cancel
 
@@ -362,7 +362,7 @@ and claim notifications), §5.11 (payroll settings).
   - claims paid; a loan of 10 000 with 4 000 EMI closes after three runs (4 000, 4 000, 2 000);
   - revert restores everything; a released run refuses revert and recompute.
 
-- [ ] Commit `feat(payroll): approve, release and revert payroll runs`
+- [x] Commit `feat(payroll): approve, release and revert payroll runs`
 
 ### Task 11: Arrears
 
@@ -376,7 +376,7 @@ and claim notifications), §5.11 (payroll settings).
 - **Tests:** a revision back-dated two months yields two months of differences; after approval a later run adds no
   more; a second revision pays only the new difference.
 
-- [ ] Commit `feat(payroll): pay arrears for back-dated revisions`
+- [x] Commit `feat(payroll): pay arrears for back-dated revisions`
 
 ### Task 12: Loans
 
@@ -386,7 +386,7 @@ and claim notifications), §5.11 (payroll settings).
   `loanStatement(db, loanId)` (repayments, outstanding).
 - **Tests:** EMI capped at the outstanding; paused loans skipped; statement totals.
 
-- [ ] Commit `feat(payroll): add loans and advances`
+- [x] Commit `feat(payroll): add loans and advances`
 
 ### Task 13: Expense claims
 
@@ -399,7 +399,7 @@ and claim notifications), §5.11 (payroll settings).
 - The receipt file is readable by the claimant, approvers and `claim.view.all` (file access resolver).
 - **Tests:** the flow; self-approval refused; a peer refused; a receipt visible to the manager, not to a peer.
 
-- [ ] Commit `feat(payroll): add expense claims`
+- [x] Commit `feat(payroll): add expense claims`
 
 ### Task 14: Payslip PDF and release
 
@@ -423,7 +423,7 @@ and claim notifications), §5.11 (payroll settings).
 - **Tests:** the released hash equals the SHA-256 of the served bytes; a second download is identical; a held
   payslip is not released; the protected copy needs the password (pdf-lib can't open it without).
 
-- [ ] Commit `feat(payroll): render, freeze and release payslips`
+- [x] Commit `feat(payroll): render, freeze and release payslips`
 
 ### Task 15: Public verification
 
@@ -436,7 +436,7 @@ and claim notifications), §5.11 (payroll settings).
 - The page: no login, `robots: noindex`, "Genuine payslip"; a form to check the net pay.
 - **Tests:** an unknown code; a match and a mismatch; each lookup logged; the masked name.
 
-- [ ] Commit `feat(payroll): add public payslip verification`
+- [x] Commit `feat(payroll): add public payslip verification`
 
 ### Task 16: Exports
 
@@ -447,7 +447,7 @@ and claim notifications), §5.11 (payroll settings).
 - The register (one row per payslip with every component column and totals), as XLSX.
 - `payroll.run` only; audited `payroll.export`.
 
-- [ ] Commit `feat(payroll): export bank advice and the payroll register`
+- [x] Commit `feat(payroll): export bank advice and the payroll register`
 
 ### Task 17: Read models
 
@@ -458,7 +458,7 @@ and claim notifications), §5.11 (payroll settings).
   `myYearStatement`, `listSalaries` (current salary per employee), `listLoans`, `listClaims`, `myClaims`,
   `pendingClaimsFor`, `verificationLog`.
 
-- [ ] Commit `feat(payroll): add payroll read models`
+- [x] Commit `feat(payroll): add payroll read models`
 
 ### Task 18: Settings → Payroll and navigation
 
@@ -470,7 +470,7 @@ and claim notifications), §5.11 (payroll settings).
   - Settings: Payroll;
   - Approvals `anyOf` + `claim.approve`.
 
-- [ ] Commit `feat(payroll): add payroll settings and navigation`
+- [x] Commit `feat(payroll): add payroll settings and navigation`
 
 ### Task 19: Components and structures pages
 
@@ -478,7 +478,7 @@ and claim notifications), §5.11 (payroll settings).
   preview against a sample CTC).
 - `/payroll/structures`: an ordered component picker with overrides and a preview.
 
-- [ ] Commit `feat(payroll): add components and structures pages`
+- [x] Commit `feat(payroll): add components and structures pages`
 
 ### Task 20: Salaries pages
 
@@ -486,7 +486,7 @@ and claim notifications), §5.11 (payroll settings).
   reason) with a live breakdown.
 - Profile Salary tab (`salary.view`): history and the current breakdown.
 
-- [ ] Commit `feat(payroll): add salaries pages`
+- [x] Commit `feat(payroll): add salaries pages`
 
 ### Task 21: Runs pages
 
@@ -498,7 +498,7 @@ and claim notifications), §5.11 (payroll settings).
     preview;
   - exports.
 
-- [ ] Commit `feat(payroll): add payroll run pages`
+- [x] Commit `feat(payroll): add payroll run pages`
 
 ### Task 22: Loans and claims pages, approvals tab
 
@@ -506,14 +506,14 @@ and claim notifications), §5.11 (payroll settings).
 - `/me/claims` (create with receipt upload, submit, withdraw).
 - Approvals → Claims tab.
 
-- [ ] Commit `feat(payroll): add loans and claims pages`
+- [x] Commit `feat(payroll): add loans and claims pages`
 
 ### Task 23: My payslips
 
 - `/me/payslips` (list by period, net, download), `/me/payslips/[id]` (lines and a download), and the year statement
   (on demand, marked as a statement).
 
-- [ ] Commit `feat(payroll): add my payslips`
+- [x] Commit `feat(payroll): add my payslips`
 
 ### Task 24: E2E, verification, documentation
 
@@ -530,7 +530,7 @@ Run `npm run test:e2e` and `npm run verify`.
 - `CLAUDE.md`: a "Payroll" bullet (paise, formulas in rupees, maker-checker, immutable releases, async rendering
   outside transactions).
 
-**Refinements to record:**
+**Refinements to record** (recorded as roadmap refinements 57–70, with those found while building):
 - `claim.view.all` permission.
 - System components REIMB and LOAN_EMI.
 - COMP_OFF_PAY and LEAVE_ENCASH as formula components with `COMP_OFF_DAYS` / `ENCASH_DAYS`. Year-end encashment of
