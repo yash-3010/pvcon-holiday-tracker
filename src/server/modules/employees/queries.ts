@@ -95,6 +95,7 @@ export interface EmployeeDetail {
   exitReason: string | null;
   bank: BankView;
   user: { id: number; email: string; status: "active" | "disabled"; roles: Role[] } | null;
+  photoFileId: number | null;
   directReports: { id: number; displayName: string; employeeCode: string }[];
 }
 
@@ -160,6 +161,7 @@ export function getEmployeeDetail(db: DbLike, id: number, opts: { revealSensitiv
     exitReason: e.exitReason,
     bank: bankView(e, opts.revealSensitive),
     user: login ? { ...login, roles: getUserRoles(db, login.id) } : null,
+    photoFileId: e.photoFileId,
     directReports,
   };
 }
@@ -175,6 +177,7 @@ export interface DirectoryEntry {
   phone: string | null;
   managerName: string | null;
   status: EmployeeStatus;
+  photoFileId: number | null;
 }
 
 export function listDirectory(db: DbLike): DirectoryEntry[] {
@@ -191,6 +194,7 @@ export function listDirectory(db: DbLike): DirectoryEntry[] {
       phone: employees.phone,
       managerName: manager.displayName,
       status: employees.status,
+      photoFileId: employees.photoFileId,
     })
     .from(employees)
     .leftJoin(departments, eq(departments.id, employees.departmentId))

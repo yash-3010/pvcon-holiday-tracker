@@ -14,7 +14,10 @@ import { EmployeeStatusBadge } from "@/components/employees/status-badge";
 import { EmployeeLeaveTab } from "@/components/leave/employee-leave-tab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PhotoEditor } from "@/components/employees/photo-editor";
+import { Avatar } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/ui/page-header";
+import { inlineFileUrl } from "@/lib/files";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { can, canAny } from "@/lib/auth/permissions";
 import { formatDate, todayInTimeZone } from "@/lib/dates";
@@ -24,6 +27,7 @@ import {
 } from "@/lib/hr";
 import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
+import { canChangePhoto } from "@/server/modules/employees/photo";
 import { employeeAttendanceSummary } from "@/server/modules/attendance/queries";
 import { defaultShift, listShifts } from "@/server/modules/attendance/shifts";
 import { employeeTimesheetSummary } from "@/server/modules/timesheets/queries";
@@ -115,6 +119,13 @@ export default async function EmployeeProfilePage({
         description={[employee.employeeCode, employee.designationName, employee.departmentName].filter(Boolean).join(" · ")}
         actions={<EmployeeStatusBadge status={employee.status} />}
       />
+      <div className="mb-6">
+        {canChangePhoto(user, employee.id) ? (
+          <PhotoEditor employeeId={employee.id} name={employee.displayName} photoFileId={employee.photoFileId} />
+        ) : (
+          <Avatar name={employee.displayName} src={employee.photoFileId ? inlineFileUrl(employee.photoFileId) : null} className="size-16 text-lg" />
+        )}
+      </div>
       <Tabs defaultValue={active}>
         <TabsList className="h-auto flex-wrap justify-start">
           {tabs.map((t) => (

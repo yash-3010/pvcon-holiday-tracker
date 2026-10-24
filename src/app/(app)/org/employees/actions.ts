@@ -15,6 +15,7 @@ import { diffObjects } from "@/server/modules/audit/service";
 import { getEmployeeChecklist, toggleChecklistItem } from "@/server/modules/employees/checklists";
 import { addEmployeeDocument, deleteEmployeeDocument } from "@/server/modules/employees/documents";
 import { recordResignation, withdrawResignation } from "@/server/modules/employees/lifecycle";
+import { canChangePhoto, PHOTO_KINDS, PHOTO_MAX_BYTES, setEmployeePhoto } from "@/server/modules/employees/photo";
 import { isManagerAbove } from "@/server/modules/employees/scope";
 import {
   createEmployee, createEmployeeLogin, linkEmployeeUser, requireEmployee, updateEmployeeBank, updateEmployeeJob,
@@ -249,4 +250,42 @@ export const toggleChecklistItemAction = defineAction({
     });
     return { status: updated.status };
   },
+});
+
+const photoEmployeeId = (form: FormData) => {
+  const id = Number(form.get("employeeId"));
+  return Number.isInteger(id) && id > 0 ? id : 0;
+};
+
+/** A photo of oneself, or of anyone for `employee.update` holders; PNG, JPG or WebP up to 2 MB. */
+export const uploadEmployeePhotoAction = defineAction({
+  name: "employees.photo.upload",
+  schema: z.instanceof(FormData),
+  permission: (user, form) => canChangePhoto(user, photoEmployeeId(form)),
+  prepare: async (form) => {
+    const file = form.get("file");
+    if (!(file instanceof File) || file.size === 0) throw new DomainError("NO_FILE", "Choose an image to upload.");
+    return { employeeId: photoEmployeeId(form), name: file.name, data: Buffer.from(await file.arrayBuffer()) };
+  },
+  handler: ({ tx, user, audit }, _form, upload) => {
+    const stored = saveUpload(tx, {
+      data: upload.data, originalName: upload.name, allowed: PHOTO_KINDS, uploadedBy: user.id, uploadDir: config.uploadDir, maxBytes: PHOTO_MAX_BYTES,
+    });
+    const change = setEmployeePhoto(tx, upload.employeeId, stored.id);
+    audit({ action: "employee.photo", entityType: "employee", entityId: upload.employeeId, summary: "Changed the photo", diff: diffObjects({ photoFileId: change.before }, { photoFileId: change.after }) });
+    return { fileId: stored.id };
+  },
+  revalidate: [...PATHS, "/org/directory", "/me/profile"],
+});
+
+export const removeEmployeePhotoAction = defineAction({
+  name: "employees.photo.remove",
+  schema: z.object({ employeeId: idSchema }),
+  permission: (user, input) => canChangePhoto(user, input.employeeId),
+  handler: ({ tx, audit }, input) => {
+    const change = setEmployeePhoto(tx, input.employeeId, null);
+    audit({ action: "employee.photo", entityType: "employee", entityId: input.employeeId, summary: "Removed the photo", diff: diffObjects({ photoFileId: change.before }, { photoFileId: null }) });
+    return { removed: change.before !== null };
+  },
+  revalidate: [...PATHS, "/org/directory", "/me/profile"],
 });

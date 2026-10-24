@@ -11,12 +11,14 @@ export function Topbar({
   onMenu,
   name,
   email,
+  photoUrl,
   unreadCount,
   recent,
 }: {
   onMenu: () => void;
   name: string;
   email: string;
+  photoUrl: string | null;
   unreadCount: number;
   recent: NotificationItem[];
 }) {
@@ -37,7 +39,7 @@ export function Topbar({
       <div className="ml-auto flex items-center gap-1">
         <NotificationBell unreadCount={unreadCount} recent={recent} />
         <ThemeToggle />
-        <UserMenu name={name} email={email} />
+        <UserMenu name={name} email={email} photoUrl={photoUrl} />
       </div>
     </header>
   );

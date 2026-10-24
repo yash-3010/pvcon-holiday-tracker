@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Mail, Phone } from "lucide-react";
 import { filterDirectory } from "@/components/employees/filters";
 import { Avatar } from "@/components/ui/avatar";
+import { inlineFileUrl } from "@/lib/files";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -55,7 +56,7 @@ export function DirectoryClient({
           {visible.map((person) => (
             <Card key={person.id}>
               <CardContent className="flex gap-3 pt-5">
-                <Avatar name={person.displayName} className="size-10" />
+                <Avatar name={person.displayName} src={person.photoFileId ? inlineFileUrl(person.photoFileId) : null} className="size-10" />
                 <div className="min-w-0 space-y-1 text-sm">
                   <p className="font-medium">
                     {canOpen.has(person.id) ? (

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { UserRound } from "lucide-react";
 import { DetailList } from "@/components/employees/detail-list";
 import { EMPTY_ADDRESS, EMPTY_EMERGENCY_CONTACT } from "@/components/employees/form-defaults";
+import { PhotoEditor } from "@/components/employees/photo-editor";
 import { EmployeeStatusBadge } from "@/components/employees/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -40,6 +41,9 @@ export default async function MyProfilePage() {
         description={`${employee.displayName} · ${employee.employeeCode}`}
         actions={<EmployeeStatusBadge status={employee.status} />}
       />
+      <div className="mb-6">
+        <PhotoEditor employeeId={employee.id} name={employee.displayName} photoFileId={employee.photoFileId} />
+      </div>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6">
           <Card>

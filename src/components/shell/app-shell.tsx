@@ -14,7 +14,7 @@ export function AppShell({
   recentNotifications,
   children,
 }: {
-  user: { name: string; email: string; permissions: Permission[]; hasEmployee: boolean };
+  user: { name: string; email: string; photoUrl: string | null; permissions: Permission[]; hasEmployee: boolean };
   unreadCount: number;
   recentNotifications: NotificationItem[];
   children: React.ReactNode;
@@ -36,6 +36,7 @@ export function AppShell({
           onMenu={() => setMobileOpen(true)}
           name={user.name}
           email={user.email}
+          photoUrl={user.photoUrl}
           unreadCount={unreadCount}
           recent={recentNotifications}
         />
