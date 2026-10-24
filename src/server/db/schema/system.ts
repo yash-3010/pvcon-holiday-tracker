@@ -30,6 +30,8 @@ export const auditLogs = sqliteTable(
   ],
 );
 
+export const EMAIL_STATUSES = ["pending", "sending", "sent", "digest", "skipped"] as const;
+
 export const notifications = sqliteTable(
   "notifications",
   {
@@ -42,9 +44,16 @@ export const notifications = sqliteTable(
     body: text("body"),
     link: text("link"),
     readAt: text("read_at"),
+    /**
+     * The email copy: `pending` (to send now), `sending` (claimed by a sender), `sent`, `digest` (in the next daily
+     * digest) or `skipped` (the user opted out, the type emails itself, SMTP is off, or sending kept failing).
+     */
+    emailStatus: text("email_status", { enum: EMAIL_STATUSES }).notNull().default("skipped"),
+    emailAttempts: integer("email_attempts").notNull().default(0),
+    emailedAt: text("emailed_at"),
     createdAt: text("created_at").notNull().$defaultFn(nowIso),
   },
-  (t) => [index("notifications_user_idx").on(t.userId, t.readAt)],
+  (t) => [index("notifications_user_idx").on(t.userId, t.readAt), index("notifications_email_idx").on(t.emailStatus, t.createdAt)],
 );
 
 export const jobRuns = sqliteTable(

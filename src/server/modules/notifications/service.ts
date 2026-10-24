@@ -1,7 +1,7 @@
 import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { DbLike } from "@/server/db/client";
 import { nowIso } from "@/server/db/columns";
-import { notifications } from "@/server/db/schema";
+import { EMAIL_STATUSES, notifications, users } from "@/server/db/schema";
 
 export interface NewNotification {
   userId: number;
@@ -11,17 +11,36 @@ export interface NewNotification {
   link?: string | null;
 }
 
+/** Notifications that send their own email (with attachments), so the outbox leaves them alone. */
+const SELF_EMAILED = new Set(["payslip.released"]);
+
+/** What happens to the email copy of each user's notification, from their email mode (spec §5.8). */
+function emailStatuses(db: DbLike, userIds: number[], type: string): Map<number, (typeof EMAIL_STATUSES)[number]> {
+  const rows = userIds.length
+    ? db.select({ id: users.id, status: users.status, mode: users.emailMode }).from(users).where(inArray(users.id, userIds)).all()
+    : [];
+  return new Map(
+    rows.map((u) => [
+      u.id,
+      SELF_EMAILED.has(type) || u.status !== "active" || u.mode === "off" ? "skipped" : u.mode === "digest" ? "digest" : "pending",
+    ]),
+  );
+}
+
 export function notify(db: DbLike, n: NewNotification): void {
-  db.insert(notifications)
-    .values({ userId: n.userId, type: n.type, title: n.title, body: n.body ?? null, link: n.link ?? null })
-    .run();
+  notifyMany(db, [n.userId], n);
 }
 
 export function notifyMany(db: DbLike, userIds: number[], n: Omit<NewNotification, "userId">): void {
   const unique = [...new Set(userIds)];
   if (!unique.length) return;
+  const email = emailStatuses(db, unique, n.type);
   db.insert(notifications)
-    .values(unique.map((userId) => ({ userId, type: n.type, title: n.title, body: n.body ?? null, link: n.link ?? null })))
+    .values(
+      unique.map((userId) => ({
+        userId, type: n.type, title: n.title, body: n.body ?? null, link: n.link ?? null, emailStatus: email.get(userId) ?? "skipped",
+      })),
+    )
     .run();
 }
 

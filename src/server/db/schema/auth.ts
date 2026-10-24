@@ -13,6 +13,8 @@ export const users = sqliteTable("users", {
   failedLoginCount: integer("failed_login_count").notNull().default(0),
   lockedUntil: text("locked_until"),
   lastLoginAt: text("last_login_at"),
+  /** How notifications reach the user by email: each at once, a daily digest, or not at all. */
+  emailMode: text("email_mode", { enum: ["instant", "digest", "off"] }).notNull().default("instant"),
   ...timestamps(),
 });
 

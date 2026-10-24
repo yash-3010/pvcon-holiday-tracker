@@ -1,12 +1,15 @@
 import "server-only";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import type { z } from "zod";
 import type { SessionUser } from "@/lib/auth/types";
 import { getCurrentUser } from "@/server/auth/session";
+import { config } from "@/server/config";
 import { db } from "@/server/db";
 import { logger } from "@/server/lib/logger";
 import { clientIp } from "@/server/lib/request";
+import { deliverNotificationEmails } from "@/server/modules/notifications/email";
 import { executeAction, type ActionDef, type ActionResult } from "./execute";
 
 export type { ActionResult } from "./execute";
@@ -37,6 +40,12 @@ export function defineAction<S extends z.ZodType, P, T>(
           logger.error({ err, action: def.name }, "after hook failed");
         }
       }
+      // Email the notifications the action created once the response is sent; the cron job catches stragglers.
+      after(() =>
+        deliverNotificationEmails(db, { now: new Date(), appUrl: config.appUrl }).catch((err) =>
+          logger.error({ err, action: def.name }, "notification email failed"),
+        ),
+      );
     }
     return result;
   };
