@@ -78,7 +78,7 @@ accessibility, mobile), §7 jobs, §8 cutover runbook, §11 testing.
 - **Tests:** mode decisions; claiming prevents a second send; failures retry then give up; SMTP absent skips;
   a digest groups a user's rows into one email.
 
-- [ ] Commit `feat(notifications): email notifications through an outbox`
+- [x] Commit `feat(notifications): email notifications through an outbox`
 
 ### Task 2: Async jobs: send and digest
 
@@ -90,7 +90,7 @@ accessibility, mobile), §7 jobs, §8 cutover runbook, §11 testing.
 - `notifications:digest` (daily 09:00, run key = date).
 - **Tests:** an async job runs once per key; a failure is recorded and retried.
 
-- [ ] Commit `feat(jobs): run asynchronous jobs for notification email`
+- [x] Commit `feat(jobs): run asynchronous jobs for notification email`
 
 ### Task 3: Announcements
 
@@ -104,7 +104,7 @@ accessibility, mobile), §7 jobs, §8 cutover runbook, §11 testing.
   edit them in a sheet. Nav: Home → Announcements.
 - **Tests:** scheduling, expiry, pinned order, notified once.
 
-- [ ] Commit `feat(announcements): add announcements`
+- [x] Commit `feat(announcements): add announcements`
 
 ### Task 4: Dashboard read models
 
@@ -117,7 +117,7 @@ accessibility, mobile), §7 jobs, §8 cutover runbook, §11 testing.
   `openExits`, `openChecklists`, `payrollStatus(month)`, `upcomingCelebrations(14 days)`.
 - **Tests:** each with a small fixture; scoping of team widgets.
 
-- [ ] Commit `feat(dashboard): add dashboard read models`
+- [x] Commit `feat(dashboard): add dashboard read models`
 
 ### Task 5: Role-aware dashboard
 
@@ -127,7 +127,7 @@ accessibility, mobile), §7 jobs, §8 cutover runbook, §11 testing.
   (`employee.view`), payroll (`payroll.run`).
 - Charts: headcount trend (line), attendance today (donut), team utilization (bar).
 
-- [ ] Commit `feat(dashboard): show role-aware dashboards`
+- [x] Commit `feat(dashboard): show role-aware dashboards`
 
 ### Task 6: Report framework and exports
 
@@ -144,7 +144,7 @@ Test `tests/integration/reports-framework.test.ts`
   table, chart, export buttons. `/api/exports/[report]?…&format=xlsx|csv`: same checks, audited `report.export`.
 - **Tests:** permission filtering, scope, export formats.
 
-- [ ] Commit `feat(reports): add the reports centre and exports`
+- [x] Commit `feat(reports): add the reports centre and exports`
 
 ### Task 7: HR and attendance reports
 
@@ -156,7 +156,7 @@ Test `tests/integration/reports-framework.test.ts`
 - Attendance (`report.attendance`, org-wide `attendance.view.all`): muster roll (month), daily status (date),
   late & early (range), overtime (range), remote vs office (range), off-day work (range).
 
-- [ ] Commit `feat(reports): add HR and attendance reports`
+- [x] Commit `feat(reports): add HR and attendance reports`
 
 ### Task 8: Leave and timesheet reports
 
@@ -167,7 +167,7 @@ Test `tests/integration/reports-framework.test.ts`
 - Timesheets (`report.timesheet`, org-wide `timesheet.view.all`): utilization, billable %, project hours, client
   hours, budget burn, missing timesheets (week).
 
-- [ ] Commit `feat(reports): add leave and timesheet reports`
+- [x] Commit `feat(reports): add leave and timesheet reports`
 
 ### Task 9: Payroll reports
 
@@ -177,7 +177,7 @@ Test `tests/integration/reports-framework.test.ts`
   `payroll.run` only), employer cost by department (period), YTD statement (employee, fiscal year), loan register,
   claims register (range), salary revision history (range).
 
-- [ ] Commit `feat(reports): add payroll reports`
+- [x] Commit `feat(reports): add payroll reports`
 
 ### Task 10: Notification preferences, SMTP status and test email
 
@@ -188,7 +188,7 @@ Test `tests/integration/notification-preferences.test.ts`
 - Settings → Email (`settings.manage`): SMTP status from env (host, port, from; no secrets) and "Send a test email"
   to the admin's own address; outbox counts (pending, failed in the last day).
 
-- [ ] Commit `feat(notifications): add email preferences and SMTP status`
+- [x] Commit `feat(notifications): add email preferences and SMTP status`
 
 ### Task 11: PWA and mobile
 
@@ -199,7 +199,7 @@ Test `tests/integration/notification-preferences.test.ts`
   192 and 512 px icons (and maskable), Apple touch icon.
 - Mobile pass: dashboard, my attendance, my leave, my timesheets, my payslips, approvals, runs.
 
-- [ ] Commit `feat(app): make the app installable and fix mobile layouts`
+- [x] Commit `feat(app): make the app installable and fix mobile layouts`
 
 ### Task 12: Accessibility and performance passes
 
@@ -209,8 +209,8 @@ Test `tests/integration/notification-preferences.test.ts`
 - Review query hot spots (dashboard, reports, run detail) for N+1 queries and missing indexes; add indexes with a
   migration where a report scans.
 
-- [ ] Commit `fix(a11y): pass accessibility checks on the main pages`
-- [ ] Commit `perf: add indexes and remove N+1 queries` (if any)
+- [x] Commit `fix(a11y): pass accessibility checks on the main pages`
+- [x] Commit `perf: add indexes and remove N+1 queries` (if any)
 
 ### Task 13: Deployment documentation
 
@@ -221,7 +221,7 @@ Test `tests/integration/notification-preferences.test.ts`
   the legacy cutover runbook (spec §8), smoke test, rollback.
 - `README.md`: what the app is, modules, local setup (WSL), scripts, tests, project docs.
 
-- [ ] Commit `docs: rewrite the deployment guide and README`
+- [x] Commit `docs: rewrite the deployment guide and README`
 
 ### Task 14: Final regression, review, documentation
 
@@ -229,4 +229,18 @@ Test `tests/integration/notification-preferences.test.ts`
 - Code review of the phase (`code-review` skill); fix confirmed findings.
 - Roadmap: Phase 6 done, refinements, integration map; CLAUDE.md (notifications, reports).
 
-- [ ] Commit `docs: mark Phase 6 done`
+- [x] Commit `docs: mark Phase 6 done`
+
+Also done during this phase:
+- profile photos, deferred here by refinement 18 (`feat(employees): add profile photos`);
+- the legacy migration now marks the years the old app closed, so `leave:year-end` doesn't carry them forward twice
+  (found while writing the cutover runbook);
+- fixes from the phase review:
+  - outbox claim recovery and skipping disabled users;
+  - masked bank accounts on the report page;
+  - signed durations;
+  - XLSX text as typed;
+  - one entry per person away;
+  - photo caching;
+- `next-auth` upgraded to 5.0.0-beta.32 for the critical Auth.js advisories. The Next.js, zod and nodemailer fixes
+  were days old and are left for a follow-up after their two-week soak.

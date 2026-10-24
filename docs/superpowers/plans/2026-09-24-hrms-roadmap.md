@@ -32,7 +32,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 | 3 Attendance + comp-off | `2026-10-24-phase-3-attendance-compoff.md` | ☑ done (f3684ce) |
 | 4 Timesheets | `2026-10-24-phase-4-timesheets.md` | ☑ done (ad47353) |
 | 5 Payroll + payslips | `2026-10-24-phase-5-payroll.md` | ☑ done (529e453) |
-| 6 Insight, notifications, polish, deploy | `2026-10-24-phase-6-insight-polish.md` | ◐ in progress (plan written) |
+| 6 Insight, notifications, polish, deploy | `2026-10-24-phase-6-insight-polish.md` | ☑ done (af0f420) |
 
 Status values: ☐ not started · ◐ in progress (note last finished task) · ☑ done (note commit hash).
 
@@ -85,7 +85,10 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
     Phase 2 adds the Leave tab and widens the nav item's `anyOf` to the approval permissions.
 17. **CSV import** creates employee records only: no logins, no onboarding checklists. Managers are matched by
     `manager_email`; a new manager must be on an earlier row. Commit is all-or-nothing.
-18. **Photo upload** (`employees.photo_file_id`) is deferred to the Phase 6 polish pass; the directory shows initials.
+18. **Photo upload** (`employees.photo_file_id`) came in the Phase 6 polish pass:
+    - employees change their own photo, and `employee.update` holders anyone's;
+    - PNG, JPG or WebP up to 2 MB;
+    - every colleague may see it (directory, profile, account menu); until then the avatar shows initials.
 19. **Profile visibility.** Managers see Overview, Job, Documents, History and Checklists for their reporting tree;
     Personal and Bank & IDs are limited to the employee and org-wide viewers (`employee.view`). Out-of-scope profile
     URLs return 404.
@@ -231,8 +234,65 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
 69. **Verification codes** are 12 characters from an alphabet without look-alikes. Lookups of unknown codes aren't
     logged (there is no payslip to link them to).
 70. **Exports.** The bank advice lists included payslips with the employee's current, full bank account; held and
-    excluded ones aren't paid yet. The register has a column per component, with arrears and claims apart. Text a
-    spreadsheet would read as a formula is escaped. Every export is audited as `payroll.export`.
+    excluded ones aren't paid yet. The register has a column per component, with arrears and claims apart. CSV text a
+    spreadsheet would read as a formula is escaped; XLSX writes text cells, which are never evaluated, as typed.
+    Every export is audited as `payroll.export`.
+71. **Notification email.** Each notification row carries an `email_status`:
+    - `pending`, `sending`, `sent`, `digest` or `skipped`, chosen from `users.email_mode` (`instant` | `digest` |
+      `off`, picked on the notifications page);
+    - switching mode moves the unsent copies along.
+
+    Sign-in, password and payslip emails are sent directly and ignore the mode. `payslip.released` copies are
+    skipped, because the payslip email carries the PDF.
+
+    Sending:
+    - `defineAction` sends right after commit (`after()`), and `notifications:send` catches up every 10 minutes;
+    - rows are claimed before sending, with the claim time (migration 0010), and claims older than 15 minutes go back to
+      the queue after a crash;
+    - three failures, an age over three days, a recipient disabled since, or no SMTP mark a copy `skipped`;
+    - `notifications:digest` sends one email per person at 09:00.
+72. **Async jobs.** A job may have a `deliver` step that runs after its transaction (email). The cron route and
+    Settings → Jobs run jobs through `runJobByNameAsync`. `system:cleanup` prunes week-old runs of the 10-minute job.
+73. **Announcements** (`announcement.manage`, HR):
+    - a title, body, pin, and a show-from / show-until date pair;
+    - everyone is notified once, on the start day, by `notifications:send`;
+    - staff see the live ones on the dashboard and `/announcements`.
+74. **Reports** (29, spec §5.10) are definitions in `src/server/modules/reports/registry.ts`. Each one has:
+    - an area;
+    - the permissions that run it (any of);
+    - an org-wide permission: holders see everyone, others their reporting tree;
+    - its filters;
+    - a synchronous `run`.
+
+    Exceptions and rules:
+    - The muster roll is also open to `report.payroll`. The bank advice report needs `payroll.run`. Payroll reports
+      are org-wide.
+    - Timesheet hours count submitted and approved weeks only. Payroll summaries count approved, released and paid
+      runs only.
+    - Today's provisional attendance is left out.
+    - A financial-year filter follows `locale.fiscalYearStartMonth`.
+    - Exports (`/api/exports/[report]`, XLSX or CSV) show money in rupees and minutes in hours. They escape formulas
+      in CSV (XLSX text cells are inert) and are audited as `report.export`.
+    - The bank advice report masks account numbers on screen. Only its audited download carries them in full
+      (`ctx.forExport`).
+75. **Settings → Email** (`settings.manage`):
+    - shows the SMTP settings from the environment (never the password);
+    - sends a test email to the administrator's own address;
+    - counts the outbox.
+76. **PWA.** A web manifest (`src/app/manifest.ts`) with icons from the brand favicon set, plus generated maskable and
+    Apple touch icons in `public/icons`. There is no service worker and no offline data.
+77. **Accessibility.**
+    - Status colours are tuned so small text meets WCAG AA on its own 15% tint, in both themes.
+    - Links inside sentences are underlined.
+    - The org chart toggles a manager's team with a button: a `<summary>` can't hold the profile link.
+    - `tests/e2e/zz-accessibility.spec.ts` runs axe (`@axe-core/playwright` pinned to 4.13.0) for serious and
+      critical WCAG 2.1 AA issues.
+78. **Legacy year-ends.** The migration marks every year the old app closed (one with a next-year carry-forward row)
+    as done for `leave:year-end`, so the first year-end run doesn't carry those days forward twice.
+79. **Indexes.** `timesheet_entries(date)` serves the timesheet reports' date ranges (migration 0009).
+80. **Photos** (refinement 18) are readable by anyone with `directory.view` through `/api/files`, like the directory
+    that shows them. Every change is audited as `employee.photo`. A new photo is a new file, so photos are served
+    `private, max-age=86400, immutable`; every other file stays `no-store`.
 
 ## Cross-phase integration map
 

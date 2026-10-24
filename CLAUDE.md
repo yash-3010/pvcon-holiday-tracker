@@ -53,7 +53,7 @@ npm run verify         # typecheck + lint + test + build — must be green befor
 Next.js 16 (App Router, Turbopack) · React 19 · TypeScript strict · Tailwind v4 · Radix (`radix-ui`
 monopackage) · cva · `@tanstack/react-table` v8 · react-hook-form + zod v4 · sonner · cmdk · next-themes ·
 recharts · SQLite (better-sqlite3, WAL) + Drizzle ORM 0.45 · Auth.js v5 beta (Credentials, JWT) · bcryptjs ·
-pino · nodemailer · papaparse · vitest · Playwright. Payroll adds @react-pdf/renderer, qrcode, @signpdf/signpdf and
+pino · nodemailer · papaparse · vitest · Playwright (with @axe-core/playwright). Payroll adds @react-pdf/renderer, qrcode, @signpdf/signpdf and
 @signpdf/signer-p12 (pinned to 3.3.0, with node-forge), @cantoo/pdf-lib and exceljs.
 
 ## Architecture rules
@@ -159,7 +159,33 @@ pino · nodemailer · papaparse · vitest · Playwright. Payroll adds @react-pdf
   - Add new access rules to the resolver list in `src/server/modules/files/access.ts`.
 - **Jobs**
   - Jobs are idempotent (`job_runs(job, run_key)` unique). They are registered in `src/server/jobs/registry.ts`.
-  - They are triggered by OS cron via `POST /api/cron/<job>` with `Authorization: Bearer $CRON_SECRET`.
+  - They are triggered by OS cron via `POST /api/cron/<job>` with `Authorization: Bearer $CRON_SECRET`
+    (crontab in `DEPLOY.md`).
+  - `run` is synchronous, inside a transaction. Async work (email) goes in an optional `deliver`, run after the
+    transaction by `runJobByNameAsync` (the cron route and Settings → Jobs use it).
+- **Notifications and email**
+  - Create notifications with `notify` / `notifyMany` (`notifications/service.ts`) inside the transaction. Each row's
+    `email_status` follows the recipient's `users.email_mode` (`instant` | `digest` | `off`).
+  - `defineAction` sends pending copies right after commit with `after()`. `notifications:send` catches up every
+    10 minutes, and `notifications:digest` sends the daily digest. Never send notification email from a handler.
+  - Emails that must always arrive (sign-in, password reset, payslips) use `sendEmail` directly, outside
+    transactions.
+  - `after` from `next/server` is mocked as a no-op in `tests/setup.ts`.
+- **Reports**
+  - A report is a `ReportDefinition` in `src/server/modules/reports/<area>.ts`, listed in `registry.ts`.
+  - Fields:
+    - `permissions`: any of them runs it;
+    - `orgWide`: holders see everyone, others their reporting tree;
+    - `filters`, and `required` for filters that can't be empty;
+    - a synchronous `run(db, ctx, params)` returning columns, rows, an optional chart and a note.
+  - Respect `ctx.scope` (use `reportEmployees`). Leave today's provisional attendance out.
+  - Values are typed by column: money in paise, `minutes`, `days`, and `percent` as 0–100. The table and
+    `/api/exports/[report]` format them, so never pre-format numbers.
+- **UI conventions**
+  - Status colours (`success`, `warning`, `destructive`, `info`) are tuned for text on their own `/15` tint (WCAG AA).
+    Keep them that way.
+  - Underline links inside sentences.
+  - Pages must not scroll sideways at 390 px. Wide tables scroll inside their card.
 
 ## Gotchas
 
@@ -190,7 +216,7 @@ pino · nodemailer · papaparse · vitest · Playwright. Payroll adds @react-pdf
   password, so name new specs to sort after it.
 - The login limiter allows 20 sign-ins per 15 minutes per client IP, and a password change signs in again. Give each
   spec its own address with `test.use(clientIp(n))`, and pass it to any `browser.newContext()` too. Taken: auth 1,
-  core-hr 2, leave 3, time-attendance 4, timesheets 5, payroll 6. Specs share the database, so use names and emails no
+  core-hr 2, leave 3, time-attendance 4, timesheets 5, payroll 6, accessibility 7, profile-photo 8. Specs share the database, so use names and emails no
   other spec uses.
 
 ## Environment
@@ -199,5 +225,5 @@ Local development runs in WSL (Ubuntu) with Node ≥ 20.9 (22 LTS recommended). 
 module: run `npm ci` inside WSL and never copy `node_modules` from Windows. Copy `.env.example` to
 `.env.local`, then fill `AUTH_SECRET` and `DATA_ENCRYPTION_KEY` with `openssl rand -base64 32`.
 
-Production is AWS Lightsail (Ubuntu, pm2, Caddy, nightly S3 backup): see `DEPLOY.md`. It is rewritten
-in Phase 6 to cover cron jobs, uploads backup and the legacy cutover runbook.
+Production is AWS Lightsail (Ubuntu, pm2, Caddy, nightly S3 backup of the database and `UPLOAD_DIR`). `DEPLOY.md`
+covers setup, the crontab for every job, backups and restore, updates, and the Holiday Tracker cutover runbook.
