@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { calculatePayslip, type CalcComponent, type PayslipCalcResult } from "@/lib/payroll/calculate";
 import type { Minor } from "@/lib/money";
 import type { ComponentInput, StructureInput } from "@/lib/validation/payroll";
@@ -118,25 +118,18 @@ export function updateComponent(db: DbLike, id: number, input: ComponentInput) {
   return { before, after };
 }
 
-/** Employees whose latest salary uses the structure. */
+/** Current employees whose latest salary uses the structure. */
 function employeesOn(db: DbLike, structureId: number): number {
-  const latest = db
-    .select({ employeeId: employeeSalaries.employeeId, effectiveFrom: sql<string>`max(${employeeSalaries.effectiveFrom})` })
+  const rows = db
+    .select({ employeeId: employeeSalaries.employeeId, structureId: employeeSalaries.structureId })
     .from(employeeSalaries)
     .innerJoin(employees, eq(employees.id, employeeSalaries.employeeId))
     .where(inArray(employees.status, ["active", "on_notice"]))
-    .groupBy(employeeSalaries.employeeId)
+    .orderBy(asc(employeeSalaries.employeeId), desc(employeeSalaries.effectiveFrom), desc(employeeSalaries.id))
     .all();
-  let n = 0;
-  for (const l of latest) {
-    const row = db
-      .select({ structureId: employeeSalaries.structureId })
-      .from(employeeSalaries)
-      .where(and(eq(employeeSalaries.employeeId, l.employeeId), eq(employeeSalaries.effectiveFrom, l.effectiveFrom)))
-      .get();
-    if (row?.structureId === structureId) n += 1;
-  }
-  return n;
+  const latest = new Map<number, number>();
+  for (const r of rows) if (!latest.has(r.employeeId)) latest.set(r.employeeId, r.structureId);
+  return [...latest.values()].filter((id) => id === structureId).length;
 }
 
 export function setStructureArchived(db: DbLike, id: number, archived: boolean): SalaryStructureRow {

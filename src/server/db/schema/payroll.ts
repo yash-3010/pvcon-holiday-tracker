@@ -59,7 +59,10 @@ export const salaryStructureComponents = sqliteTable(
   (t) => [primaryKey({ columns: [t.structureId, t.componentId] })],
 );
 
-/** Salary history. The salary for a month is the latest row effective on or before its 1st. */
+/**
+ * Salary history. The salary for a month is the latest row effective on or before its 1st; of two rows for the same
+ * month the later one wins. A row payroll has used is never changed, so a correction of its month adds a row.
+ */
 export const employeeSalaries = sqliteTable(
   "employee_salaries",
   {
@@ -80,7 +83,7 @@ export const employeeSalaries = sqliteTable(
     approvedBy: integer("approved_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: text("created_at").notNull().$defaultFn(nowIso),
   },
-  (t) => [uniqueIndex("employee_salaries_effective_idx").on(t.employeeId, t.effectiveFrom)],
+  (t) => [index("employee_salaries_effective_idx").on(t.employeeId, t.effectiveFrom)],
 );
 
 export const payrollRuns = sqliteTable(
@@ -131,6 +134,8 @@ export const payrollInputs = sqliteTable(
     note: text("note"),
     source: text("source", { enum: INPUT_SOURCES }).notNull().default("manual"),
     sourceId: integer("source_id"),
+    /** Arrears: the salary the old payslip (`source_id`) is brought up to. */
+    salaryId: integer("salary_id").references(() => employeeSalaries.id, { onDelete: "set null" }),
     createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: text("created_at").notNull().$defaultFn(nowIso),
   },

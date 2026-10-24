@@ -11,6 +11,7 @@ import {
 import { DomainError } from "@/server/errors";
 import { employedDuring } from "@/server/modules/attendance/compute";
 import { requireEmployee } from "@/server/modules/employees/service";
+import { arrearsFor } from "./arrears";
 import { componentByCode, requireComponent } from "./components";
 
 export const EDITABLE_RUN_STATUSES = ["draft", "computed"] as const;
@@ -140,14 +141,15 @@ export function loanOutstanding(db: DbLike, loanId: number, principal: Minor, ex
 
 /**
  * Replaces a regular run's system inputs (spec §5.6 run step 2): approved, unpaid expense claims dated by the period
- * end → REIMB; EMIs of active loans started by the period, capped at the outstanding → LOAN_EMI. Comp-off payouts and
- * exit encashment come through the COMP_OFF_DAYS and ENCASH_DAYS variables. Off-cycle runs take manual inputs only.
+ * end → REIMB; EMIs of active loans started by the period, capped at the outstanding → LOAN_EMI; arrears of back-dated
+ * revisions. Comp-off payouts and exit encashment come through the COMP_OFF_DAYS and ENCASH_DAYS variables. Off-cycle
+ * runs take manual inputs only. Returns warnings for the run.
  */
-export function refreshSystemInputs(db: DbLike, run: PayrollRunRow): void {
+export function refreshSystemInputs(db: DbLike, run: PayrollRunRow): string[] {
   db.delete(payrollInputs).where(and(eq(payrollInputs.runId, run.id), ne(payrollInputs.source, "manual"))).run();
-  if (run.type !== "regular") return;
+  if (run.type !== "regular") return [];
   const employed = [...employedInPeriod(db, run.period)];
-  if (!employed.length) return;
+  if (!employed.length) return [];
   const { end } = monthRange(run.period);
 
   const reimb = componentByCode(db, SYSTEM_COMPONENTS.reimbursement)!;
@@ -179,4 +181,8 @@ export function refreshSystemInputs(db: DbLike, run: PayrollRunRow): void {
       label: loan.type === "advance" ? "Advance recovery" : "Loan repayment",
     }).run();
   }
+
+  const arrears = arrearsFor(db, run, employed);
+  for (const a of arrears.inputs) db.insert(payrollInputs).values({ runId: run.id, ...a, source: "arrear" }).run();
+  return arrears.warnings;
 }

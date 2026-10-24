@@ -1,24 +1,46 @@
-import { and, desc, eq, lte } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, or } from "drizzle-orm";
 import type { Minor } from "@/lib/money";
+import { CLOSED_RUN_STATUSES } from "@/lib/payroll/constants";
 import type { SalaryInput } from "@/lib/validation/payroll";
 import type { DbLike } from "@/server/db/client";
-import { employeeSalaries, type EmployeeSalaryRow } from "@/server/db/schema";
+import { employeeSalaries, payrollInputs, payrollRuns, payslips, type EmployeeSalaryRow } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { recordEmployeeEvent, requireEmployee } from "@/server/modules/employees/service";
 import { requireStructure, structureComponents, structurePreview } from "./structures";
 
-/** The salary for a pay period: the latest revision effective on or before its 1st. */
+const LATEST_FIRST = [desc(employeeSalaries.effectiveFrom), desc(employeeSalaries.id)] as const;
+
+/** The salary for a pay period: the latest revision effective on or before its 1st (the later of two for a month). */
 export function effectiveSalary(db: DbLike, employeeId: number, period: string): EmployeeSalaryRow | undefined {
   return db
     .select()
     .from(employeeSalaries)
     .where(and(eq(employeeSalaries.employeeId, employeeId), lte(employeeSalaries.effectiveFrom, `${period}-01`)))
-    .orderBy(desc(employeeSalaries.effectiveFrom))
+    .orderBy(...LATEST_FIRST)
     .get();
 }
 
+/** Every revision, latest first. A row followed by a later one for the same month was corrected by it. */
 export function salaryHistory(db: DbLike, employeeId: number): EmployeeSalaryRow[] {
-  return db.select().from(employeeSalaries).where(eq(employeeSalaries.employeeId, employeeId)).orderBy(desc(employeeSalaries.effectiveFrom)).all();
+  return db.select().from(employeeSalaries).where(eq(employeeSalaries.employeeId, employeeId)).orderBy(...LATEST_FIRST).all();
+}
+
+/** Whether an approved, released or paid payslip was computed with the revision, or brought up to it by arrears. */
+function usedByPayroll(db: DbLike, salaryId: number): boolean {
+  const closed = inArray(payrollRuns.status, CLOSED_RUN_STATUSES);
+  const payslip = db
+    .select({ id: payslips.id })
+    .from(payslips)
+    .innerJoin(payrollRuns, eq(payrollRuns.id, payslips.runId))
+    .where(and(closed, or(eq(payslips.salaryId, salaryId), eq(payslips.paidBasisSalaryId, salaryId))))
+    .get();
+  const arrear = db
+    .select({ id: payrollInputs.id })
+    .from(payrollInputs)
+    .innerJoin(payrollRuns, eq(payrollRuns.id, payrollInputs.runId))
+    .where(and(closed, eq(payrollInputs.salaryId, salaryId)))
+    .get();
+  return !!payslip || !!arrear;
 }
 
 export interface SalaryPreview {
@@ -70,19 +92,24 @@ export function reviseSalary(db: DbLike, actorUserId: number, input: SalaryInput
     .select()
     .from(employeeSalaries)
     .where(and(eq(employeeSalaries.employeeId, employee.id), lte(employeeSalaries.effectiveFrom, input.effectiveFrom)))
-    .orderBy(desc(employeeSalaries.effectiveFrom))
+    .orderBy(...LATEST_FIRST)
     .all()
     .find((s) => s.effectiveFrom !== input.effectiveFrom);
   const values = {
     annualCtc: input.annualCtc, structureId: input.structureId, overrides: input.overrides, reason: input.reason,
     createdBy: actorUserId, approvedBy: actorUserId,
   };
-  const saved = db
-    .insert(employeeSalaries)
-    .values({ employeeId: employee.id, effectiveFrom: input.effectiveFrom, ...values })
-    .onConflictDoUpdate({ target: [employeeSalaries.employeeId, employeeSalaries.effectiveFrom], set: values })
-    .returning()
+  // A revision for the same month replaces it, unless payroll has used it: then the new row corrects it (arrears).
+  const sameMonth = db
+    .select()
+    .from(employeeSalaries)
+    .where(and(eq(employeeSalaries.employeeId, employee.id), eq(employeeSalaries.effectiveFrom, input.effectiveFrom)))
+    .orderBy(desc(employeeSalaries.id))
     .get();
+  const saved =
+    sameMonth && !usedByPayroll(db, sameMonth.id)
+      ? db.update(employeeSalaries).set(values).where(eq(employeeSalaries.id, sameMonth.id)).returning().get()!
+      : db.insert(employeeSalaries).values({ employeeId: employee.id, effectiveFrom: input.effectiveFrom, ...values }).returning().get();
   recordEmployeeEvent(db, {
     employeeId: employee.id, type: "salary_revised", effectiveDate: input.effectiveFrom,
     from: previous ? { annualCtc: previous.annualCtc } : null, to: { annualCtc: input.annualCtc }, note: input.reason, createdBy: actorUserId,

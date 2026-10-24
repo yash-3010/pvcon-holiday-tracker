@@ -211,7 +211,7 @@ export function calculatePayslip(input: PayslipCalcInput): PayslipCalcResult {
     let excess = totalDeductions - grossEarnings;
     warnings.push(`Deductions capped at gross pay: ${amountText(excess)} not deducted`);
     for (const line of [...lines].reverse()) {
-      if (line.kind !== "deduction" || excess === 0) continue;
+      if (line.kind !== "deduction" || line.amount <= 0 || excess === 0) continue;
       const cut = Math.min(line.amount, excess);
       line.amount -= cut;
       excess -= cut;

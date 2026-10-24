@@ -107,6 +107,20 @@ describe("calculatePayslip", () => {
     expect(result.warnings).toEqual(["Deductions capped at gross pay: 2,666.00 not deducted"]);
   });
 
+  it("never raises a negative deduction (a recovered arrear) while capping", () => {
+    const result = calculatePayslip(
+      input({
+        variables: days(1),
+        inputs: [
+          { code: "OTHER_DEDUCTION", amount: 500_000, label: "Other deduction", source: "manual" },
+          { code: "OTHER_DEDUCTION", amount: -10_000, label: "Arrears – Other deduction (Oct 2026)", source: "arrear" },
+        ],
+      }),
+    );
+    expect(result.lines.map((l) => [l.name, l.amount]).slice(-2)).toEqual([["Other deduction", 343_400], ["Arrears – Other deduction (Oct 2026)", -10_000]]);
+    expect(result.netPay).toBe(0);
+  });
+
   it("reports formula problems instead of computing", () => {
     expect(calculatePayslip(input({ components: [c({ code: "X", calc: "formula", formula: "MONTHLY_CTC / (PAID_DAYS - 30)" })] })).errors).toEqual([
       "X: Division by zero",

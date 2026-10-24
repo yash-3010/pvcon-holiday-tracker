@@ -12,6 +12,7 @@ import { DomainError } from "@/server/errors";
 import { fillMissingAttendance } from "@/server/modules/attendance/compute";
 import { bankView } from "@/server/modules/employees/sensitive";
 import { notify } from "@/server/modules/notifications/service";
+import { settleArrears, unsettleArrears } from "./arrears";
 import { assertEditable, employedInPeriod, loanOutstanding, refreshSystemInputs, requireRun } from "./inputs";
 import { periodVariables } from "./period";
 import { effectiveSalary } from "./salaries";
@@ -143,9 +144,8 @@ export function computeRun(
 ): { run: PayrollRunRow; payslips: number } {
   const run = requireRun(db, runId);
   assertEditable(run);
-  refreshSystemInputs(db, run);
+  const warnings = refreshSystemInputs(db, run);
   const inputs = runInputs(db, run.id);
-  const warnings: string[] = [];
   const paid: number[] = [];
 
   const employeeIds = run.type === "regular" ? [...employedInPeriod(db, run.period)] : [...inputs.keys()];
@@ -216,7 +216,7 @@ function compOffPayoutsFor(run: PayrollRunRow, employeeIds: number[]) {
 /**
  * Approves a computed run (spec §5.6 run step 5): by someone other than the person who computed it, with no payslip
  * errors. For every included or held payslip it locks the period's attendance, marks the run's expense claims paid,
- * writes loan repayments (closing repaid loans) and marks the comp-off payouts paid.
+ * writes loan repayments (closing repaid loans), marks the comp-off payouts paid and settles arrears.
  */
 export function approveRun(
   db: DbLike,
@@ -249,6 +249,7 @@ export function approveRun(
   const inputs = paidIds.length
     ? db.select().from(payrollInputs).where(and(eq(payrollInputs.runId, run.id), inArray(payrollInputs.employeeId, paidIds))).orderBy(asc(payrollInputs.id)).all()
     : [];
+  settleArrears(db, run.id, paidIds);
   const claimIds = inputs.filter((i) => i.source === "claim" && i.sourceId !== null).map((i) => i.sourceId!);
   if (claimIds.length) {
     db.update(expenseClaims).set({ status: "paid", paidRunId: run.id, financeBy: actorUserId }).where(inArray(expenseClaims.id, claimIds)).run();
@@ -283,8 +284,8 @@ export function approveRun(
 
 /**
  * Takes an approved run back to computed (spec §5.6 "Revert"): unlocks its attendance, puts its claims back to
- * approved, deletes its loan repayments (reopening loans they closed) and unmarks its comp-off payouts. Not once a later
- * regular run exists.
+ * approved, deletes its loan repayments (reopening loans they closed), unmarks its comp-off payouts and unsettles its
+ * arrears. Not once a later regular run exists.
  */
 export function revertRun(db: DbLike, runId: number): PayrollRunRow {
   const run = requireRun(db, runId);
@@ -307,6 +308,7 @@ export function revertRun(db: DbLike, runId: number): PayrollRunRow {
   }
   db.update(expenseClaims).set({ status: "approved", paidRunId: null, financeBy: null }).where(eq(expenseClaims.paidRunId, run.id)).run();
   db.update(compOffClaims).set({ paidRunId: null }).where(eq(compOffClaims.paidRunId, run.id)).run();
+  unsettleArrears(db, run.id);
   const repaid = db.select().from(loanRepayments).where(eq(loanRepayments.runId, run.id)).all();
   db.delete(loanRepayments).where(eq(loanRepayments.runId, run.id)).run();
   for (const loanId of new Set(repaid.map((r) => r.loanId))) {
