@@ -1,5 +1,5 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { nowIso } from "../columns";
+import { nowIso, timestamps } from "../columns";
 import { users } from "./auth";
 
 export const companySettings = sqliteTable("company_settings", {
@@ -85,3 +85,23 @@ export type AuditLogRow = typeof auditLogs.$inferSelect;
 export type NotificationRow = typeof notifications.$inferSelect;
 export type JobRunRow = typeof jobRuns.$inferSelect;
 export type FileRow = typeof files.$inferSelect;
+
+/** Company announcements (spec §4.1): shown from `publish_at` until `expires_at` (exclusive), pinned ones first. */
+export const announcements = sqliteTable(
+  "announcements",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+    publishAt: text("publish_at").notNull(),
+    expiresAt: text("expires_at"),
+    /** When everyone was notified; set once. */
+    notifiedAt: text("notified_at"),
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps(),
+  },
+  (t) => [index("announcements_publish_idx").on(t.publishAt)],
+);
+
+export type AnnouncementRow = typeof announcements.$inferSelect;

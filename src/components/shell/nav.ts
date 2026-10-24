@@ -1,7 +1,7 @@
 import {
   BadgeCheck, Banknote, Bell, Blocks, Building, Building2, CalendarClock, CalendarCog, CalendarDays, CalendarRange, ClipboardClock,
   ClipboardList, Clock, Contact, FileText, Fingerprint, FolderKanban, Gift, Grid3x3, HandCoins, Handshake, House, IdCard, Inbox,
-  Landmark, Layers, ListChecks, Network, PartyPopper, Receipt, ReceiptText, Scale, ScrollText, Shapes, ShieldCheck, Tags, Timer, Upload,
+  Landmark, Layers, ListChecks, Megaphone, Network, PartyPopper, Receipt, ReceiptText, Scale, ScrollText, Shapes, ShieldCheck, Tags, Timer, Upload,
   UserRound, UserRoundCheck, Users, Wallet, type LucideIcon,
 } from "lucide-react";
 import { canAny, type Permission } from "@/lib/auth/permissions";
@@ -34,6 +34,7 @@ export const NAV: NavGroup[] = [
         anyOf: ["employee.update", "leave.approve", "regularization.approve", "compoff.approve", "timesheet.approve", "claim.approve"],
       },
       { title: "Notifications", href: "/notifications", icon: Bell },
+      { title: "Announcements", href: "/announcements", icon: Megaphone },
     ],
   },
   {

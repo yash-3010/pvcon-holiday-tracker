@@ -10,7 +10,7 @@ describe("navigation", () => {
     const employee = permissionsForRoles(["employee"]);
     expect(visibleNav(employee).map((g) => g.title)).toEqual(["Home", "Organization"]);
     expect(visibleNav(employee, { hasEmployee: true }).map((g) => g.title)).toEqual(["Home", "My Space", "Team", "Organization"]);
-    expect(hrefs(["employee"])).toEqual(["/", "/notifications", "/org/directory", "/org/chart"]);
+    expect(hrefs(["employee"])).toEqual(["/", "/notifications", "/announcements", "/org/directory", "/org/chart"]);
     expect(hrefs(["employee"], true)).toEqual(expect.arrayContaining(["/me/leave", "/team/calendar"]));
     expect(hrefs(["employee"], true)).not.toContain("/approvals");
   });

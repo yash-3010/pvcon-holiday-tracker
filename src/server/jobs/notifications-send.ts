@@ -1,4 +1,5 @@
 import { config } from "@/server/config";
+import { publishDueAnnouncements } from "@/server/modules/announcements/service";
 import { deliverNotificationEmails } from "@/server/modules/notifications/email";
 import type { JobDefinition } from "./registry";
 
@@ -14,8 +15,8 @@ function slot(now: Date, timeZone: string): string {
 
 export const notificationsSendJob: JobDefinition = {
   name: "notifications:send",
-  description: "Every 10 minutes: emails notifications that weren't sent right after their action.",
+  description: "Every 10 minutes: announces scheduled announcements, then emails notifications not yet sent.",
   runKey: (now, timeZone) => slot(now, timeZone),
-  run: () => "checked",
+  run: (db, now) => `${publishDueAnnouncements(db, now)} announcement(s) published`,
   deliver: async (db, now) => `${await deliverNotificationEmails(db, { now, appUrl: config.appUrl })} email(s) sent`,
 };
