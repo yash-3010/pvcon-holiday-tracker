@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { DB } from "@/server/db/client";
-import { attendanceDays, compOffClaims, leaveRequests, leaveTypes, shifts, type EmployeeRow } from "@/server/db/schema";
+import { attendanceDays, attendancePunches, compOffClaims, leaveRequests, leaveTypes, shifts, type EmployeeRow } from "@/server/db/schema";
 import { setOverride } from "@/server/modules/attendance/overrides";
 import { seedDefaultShift } from "@/server/modules/attendance/shifts";
 import { postLedger } from "@/server/modules/leave/ledger";
@@ -63,6 +63,19 @@ describe("period days", () => {
     expect(periodVariables(db, asha, "2026-11", { today: "2026-11-15", now: new Date("2026-11-15T06:00:00Z") })).toMatchObject({
       LOP_DAYS: 2, PAID_DAYS: 28,
     });
+  });
+
+  it("projects today while its punches are still coming in, unless HR has overridden it", () => {
+    const TODAY = { today: "2026-11-16", now: new Date("2026-11-16T05:00:00Z") };
+    // The month so far is computed in auto mode; then the shift takes punches and Asha clocks in this morning.
+    periodVariables(db, asha, "2026-11", TODAY);
+    db.update(shifts).set({ attendanceMode: "punch" }).run();
+    db.insert(attendancePunches).values({ employeeId: asha.id, at: "2026-11-16T03:50:00.000Z", date: "2026-11-16", direction: "in" }).run();
+    expect(periodDays(db, asha.id, "2026-11", TODAY).find((d) => d.date === "2026-11-16")).toMatchObject({ status: "projected", working: true });
+    expect(periodVariables(db, asha, "2026-11", TODAY)).toMatchObject({ LOP_DAYS: 0, PAID_DAYS: 30 });
+
+    setOverride(db, hrId, { employeeId: asha.id, date: "2026-11-16", status: "absent", note: "Sent home" }, TODAY);
+    expect(periodVariables(db, asha, "2026-11", TODAY)).toMatchObject({ LOP_DAYS: 1, PAID_DAYS: 29 });
   });
 
   it("counts service, unpaid comp-off payouts once, and encashable leave on leaving", () => {

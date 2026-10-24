@@ -309,6 +309,10 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
       - exceljs's uuid 8: the bug is in v3/v5/v6 with a caller's buffer, and exceljs only calls `v4()`;
       - drizzle-kit's esbuild 0.18: the bug is in esbuild's dev server, and drizzle-kit's loader only calls
         `transformSync`.
+82. **Payroll projects today too** (spec §5.6 says "days after today"). Today's punch-based status is provisional:
+    someone who has clocked in but not out reads `absent` until they clock out. A run computed during the day would
+    otherwise charge everyone at work a day's loss of pay. Today is projected like the days after it, unless HR has
+    overridden it.
 
 ## Cross-phase integration map
 
