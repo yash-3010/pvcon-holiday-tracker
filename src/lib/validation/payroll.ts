@@ -147,6 +147,7 @@ export const loanSchema = z
   .superRefine((l, ctx) => {
     if (l.emi > l.principal) ctx.addIssue({ code: "custom", path: ["emi"], message: "Can't be more than the principal" });
   });
+export type LoanInput = z.output<typeof loanSchema>;
 
 export const claimSchema = z.object({
   category: z.enum(CLAIM_CATEGORIES),
