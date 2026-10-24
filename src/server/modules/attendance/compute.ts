@@ -112,7 +112,7 @@ export function recomputeAttendance(
  * Employees employed on some day of [from, to]. An exited employee counts up to their last working day; one without a
  * last working day (a migrated inactive account) has no attendance.
  */
-function employedDuring(from: ISODate, to: ISODate) {
+export function employedDuring(from: ISODate, to: ISODate) {
   return and(
     lte(employees.dateOfJoining, to),
     or(
