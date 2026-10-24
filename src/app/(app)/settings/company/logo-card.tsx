@@ -18,7 +18,7 @@ export function LogoCard({ logoFileId }: { logoFileId: number | null }) {
     <Card>
       <CardHeader>
         <CardTitle>Logo</CardTitle>
-        <CardDescription>PNG, JPG or WebP up to 2 MB. Used on payslips.</CardDescription>
+        <CardDescription>PNG, JPG or WebP up to 2 MB. Payslips show PNG and JPG logos.</CardDescription>
       </CardHeader>
       <CardContent className="flex items-center gap-4">
         <div className="flex size-20 items-center justify-center overflow-hidden rounded-lg border bg-muted">

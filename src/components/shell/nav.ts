@@ -1,7 +1,8 @@
 import {
-  BadgeCheck, Bell, Building, Building2, CalendarClock, CalendarCog, CalendarDays, CalendarRange, ClipboardClock, ClipboardList,
-  Clock, Contact, FileText, Fingerprint, FolderKanban, Gift, Grid3x3, Handshake, House, IdCard, Inbox, ListChecks, Network,
-  PartyPopper, Scale, ScrollText, Shapes, ShieldCheck, Tags, Timer, Upload, UserRound, UserRoundCheck, Users, type LucideIcon,
+  BadgeCheck, Banknote, Bell, Blocks, Building, Building2, CalendarClock, CalendarCog, CalendarDays, CalendarRange, ClipboardClock,
+  ClipboardList, Clock, Contact, FileText, Fingerprint, FolderKanban, Gift, Grid3x3, HandCoins, Handshake, House, IdCard, Inbox,
+  Landmark, Layers, ListChecks, Network, PartyPopper, Receipt, ReceiptText, Scale, ScrollText, Shapes, ShieldCheck, Tags, Timer, Upload,
+  UserRound, UserRoundCheck, Users, Wallet, type LucideIcon,
 } from "lucide-react";
 import { canAny, type Permission } from "@/lib/auth/permissions";
 
@@ -22,7 +23,7 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Later phases add groups (Payroll, Reports) and widen `anyOf` for Approvals. */
+/** Phase 6 adds Reports. */
 export const NAV: NavGroup[] = [
   {
     title: "Home",
@@ -30,7 +31,7 @@ export const NAV: NavGroup[] = [
       { title: "Dashboard", href: "/", icon: House },
       {
         title: "Approvals", href: "/approvals", icon: Inbox,
-        anyOf: ["employee.update", "leave.approve", "regularization.approve", "compoff.approve", "timesheet.approve"],
+        anyOf: ["employee.update", "leave.approve", "regularization.approve", "compoff.approve", "timesheet.approve", "claim.approve"],
       },
       { title: "Notifications", href: "/notifications", icon: Bell },
     ],
@@ -44,6 +45,8 @@ export const NAV: NavGroup[] = [
       { title: "My timesheets", href: "/me/timesheets", icon: ClipboardClock, requiresEmployee: true },
       { title: "My leave", href: "/me/leave", icon: CalendarDays, requiresEmployee: true },
       { title: "My comp-off", href: "/me/comp-off", icon: Gift, requiresEmployee: true },
+      { title: "My payslips", href: "/me/payslips", icon: ReceiptText, requiresEmployee: true },
+      { title: "My claims", href: "/me/claims", icon: Receipt, requiresEmployee: true },
     ],
   },
   {
@@ -89,6 +92,17 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
+    title: "Payroll",
+    items: [
+      { title: "Payroll runs", href: "/payroll/runs", icon: Banknote, anyOf: ["payroll.run", "payroll.approve", "payroll.release"] },
+      { title: "Salaries", href: "/payroll/salaries", icon: Wallet, anyOf: ["salary.view", "salary.manage"] },
+      { title: "Components", href: "/payroll/components", icon: Blocks, anyOf: ["payroll.configure"] },
+      { title: "Structures", href: "/payroll/structures", icon: Layers, anyOf: ["payroll.configure"] },
+      { title: "Loans", href: "/payroll/loans", icon: HandCoins, anyOf: ["loan.manage"] },
+      { title: "Claims", href: "/payroll/claims", icon: Receipt, anyOf: ["claim.view.all"] },
+    ],
+  },
+  {
     title: "Settings",
     items: [
       { title: "Company", href: "/settings/company", icon: Building2, anyOf: ["settings.manage"] },
@@ -96,6 +110,7 @@ export const NAV: NavGroup[] = [
       { title: "Attendance", href: "/settings/attendance", icon: CalendarClock, anyOf: ["attendance.manage"] },
       { title: "Leave", href: "/settings/leave", icon: CalendarCog, anyOf: ["leave.config"] },
       { title: "Comp-off", href: "/settings/comp-off", icon: Gift, anyOf: ["leave.config"] },
+      { title: "Payroll", href: "/settings/payroll", icon: Landmark, anyOf: ["payroll.configure"] },
       { title: "Users & roles", href: "/settings/users", icon: Users, anyOf: ["user.manage", "role.assign"] },
       { title: "Security", href: "/settings/security", icon: ShieldCheck, anyOf: ["settings.manage"] },
       { title: "Audit log", href: "/settings/audit", icon: ScrollText, anyOf: ["audit.view"] },

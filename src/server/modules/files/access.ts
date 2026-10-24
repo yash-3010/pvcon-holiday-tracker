@@ -18,6 +18,7 @@ const RESOLVERS: FileAccessResolver[] = [
   (_db, user, file) => file.uploadedBy === user.id,
   (_db, user) => user.roles.includes("super_admin"),
   (db, _user, file) => getSetting(db, "company").logoFileId === file.id,
+  (db, user, file) => can(user, "payroll.configure") && getSetting(db, "payroll").signatoryImageFileId === file.id,
   // Employee documents are as private as Personal and Bank & IDs: the employee themself and org-wide viewers
   // (`employee.view`: HR, payroll, super admin) only. A manager above does NOT get them — id_proof/address_proof
   // scans carry the same data spec §3.4 restricts for bank/ID numbers.

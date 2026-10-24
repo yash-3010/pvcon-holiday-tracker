@@ -64,6 +64,14 @@ export const payrollSettingsSchema = z.object({
   pdfPasswordFormat: z.enum(["dob_ddmmyyyy", "employee_code"]),
 });
 
+/** The payroll settings form; the signature image is uploaded on its own. */
+export const payrollSettingsFormSchema = payrollSettingsSchema
+  .omit({ signatoryImageFileId: true })
+  .extend({ payslipFooter: z.string().trim().max(500), signatoryName: z.string().trim().max(100), signatoryDesignation: z.string().trim().max(100) })
+  .superRefine((s, ctx) => {
+    if (s.signatoryEnabled && !s.signatoryName) ctx.addIssue({ code: "custom", path: ["signatoryName"], message: "Enter the signatory's name" });
+  });
+
 export const securitySettingsSchema = z.object({
   lockoutAttempts: z.number().int().min(3).max(20),
   lockoutMinutes: z.number().int().min(1).max(1440),
