@@ -38,7 +38,7 @@ describe("navigation", () => {
     );
     expect(hrefs(["payroll_admin"])).toEqual(expect.arrayContaining(["/time/attendance", "/time/muster", "/leave/comp-off"]));
     expect(hrefs(["payroll_admin"])).not.toContain("/time/shifts");
-    expect(visibleNav(permissionsForRoles(["hr_admin"])).map((g) => g.title)).toEqual(["Home", "Team", "Time", "Organization", "Leave", "Settings"]);
+    expect(visibleNav(permissionsForRoles(["hr_admin"])).map((g) => g.title)).toEqual(["Home", "Team", "Time", "Organization", "Leave", "Payroll", "Settings"]);
   });
 
   it("shows timesheet pages by permission", () => {
@@ -48,6 +48,22 @@ describe("navigation", () => {
     expect(hrefs(["manager"], true)).not.toContain("/time/projects");
     expect(hrefs(["hr_admin"])).toEqual(expect.arrayContaining(["/time/projects", "/time/clients", "/time/categories"]));
     expect(hrefs(["payroll_admin"])).not.toContain("/time/projects");
+  });
+
+  it("shows payroll pages by permission", () => {
+    expect(hrefs(["employee"], true)).toEqual(expect.arrayContaining(["/me/payslips", "/me/claims"]));
+    expect(hrefs(["employee"], true)).not.toContain("/payroll/runs");
+    expect(hrefs(["payroll_admin"])).toEqual(
+      expect.arrayContaining([
+        "/payroll/runs", "/payroll/salaries", "/payroll/components", "/payroll/structures", "/payroll/loans", "/payroll/claims", "/settings/payroll",
+      ]),
+    );
+    // HR sees every claim and decides them, but neither runs payroll nor sees salaries.
+    expect(hrefs(["hr_admin"])).toEqual(expect.arrayContaining(["/payroll/claims", "/approvals"]));
+    expect(hrefs(["hr_admin"])).not.toContain("/payroll/runs");
+    expect(hrefs(["hr_admin"])).not.toContain("/payroll/salaries");
+    // Managers approve claims of their reports.
+    expect(hrefs(["manager"], true)).toContain("/approvals");
   });
 
   it("shows HR the org masters, approvals and users, but not company settings or jobs", () => {
