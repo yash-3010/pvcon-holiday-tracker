@@ -29,7 +29,7 @@ export interface ReportResult {
   note?: string;
 }
 
-export const FILTER_KINDS = ["period", "range", "date", "year", "week", "department", "employee", "project", "run"] as const;
+export const FILTER_KINDS = ["period", "range", "date", "year", "fiscalYear", "week", "department", "employee", "project", "run"] as const;
 export type FilterKind = (typeof FILTER_KINDS)[number];
 
 export interface ReportParams {
@@ -37,7 +37,10 @@ export interface ReportParams {
   from: ISODate;
   to: ISODate;
   date: ISODate;
+  /** A leave year. */
   year: number;
+  /** The months of a financial year (`locale.fiscalYearStartMonth`), named by its first. */
+  fiscalYear: { start: string; end: string; label: string };
   /** A Monday. */
   week: ISODate;
   departmentId: number | null;

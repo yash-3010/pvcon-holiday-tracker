@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { addMonths, fiscalYearOf } from "@/lib/dates";
 import type { FilterOptions } from "@/server/modules/reports/options";
 import type { FilterKind, ReportParams } from "@/server/modules/reports/types";
 
@@ -53,6 +54,20 @@ export function FilterBar({ filters, params, options }: { filters: readonly Filt
                 <Input id="f-year" name="year" type="number" min={2000} max={2099} className="w-28" defaultValue={params.year} />
               </Field>
             );
+          case "fiscalYear": {
+            const [startYear, startMonth] = params.fiscalYear.start.split("-").map(Number) as [number, number];
+            return (
+              <Field key={f} label="Financial year" htmlFor="f-fy">
+                <NativeSelect id="f-fy" name="fy" defaultValue={startYear}>
+                  {[1, 0, -1, -2, -3, -4, -5].map((offset) => (
+                    <option key={offset} value={startYear + offset}>
+                      {fiscalYearOf(addMonths(params.fiscalYear.start, offset * 12), startMonth).label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+            );
+          }
           case "week":
             return (
               <Field key={f} label="Week of" htmlFor="f-week">

@@ -46,7 +46,10 @@ describe("report scope and parameters", () => {
     const today = "2026-11-10";
     expect(parseReportParams(db, {}, { today, scope: null })).toMatchObject({
       period: "2026-10", from: "2026-11-01", to: today, date: today, week: "2026-11-02", employeeId: null,
+      fiscalYear: { start: "2026-04", end: "2027-03", label: "FY 2026–27" },
     });
+    expect(parseReportParams(db, { fy: "2024" }, { today: "2027-04-10", scope: null }).fiscalYear.start).toBe("2024-04");
+    expect(parseReportParams(db, {}, { today: "2027-04-10", scope: null }).fiscalYear.start).toBe("2026-04");
     expect(parseReportParams(db, { from: "2026-11-09", to: "2026-11-01", week: "2026-11-12", employee: "7" }, { today, scope: [3] })).toMatchObject({
       from: "2026-11-01", to: "2026-11-09", week: "2026-11-09", employeeId: null,
     });
