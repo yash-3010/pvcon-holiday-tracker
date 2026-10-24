@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { addDays, type ISODate } from "@/lib/dates";
 import { PROJECT_STATUS_LABELS, TIMESHEET_STATUS_LABELS, utilization, weekRangeLabel } from "@/lib/timesheets";
 import type { DbLike } from "@/server/db/client";
@@ -205,13 +205,25 @@ export const timesheetsReports: ReportDefinition[] = [
           : [],
       );
       const managers = new Map(db.select({ id: employees.id, name: employees.displayName }).from(employees).all().map((e) => [e.id, e.name]));
+      const sheetIds = [...weeks.values()].map((t) => t.id);
+      const loggedBySheet = new Map(
+        sheetIds.length
+          ? db
+              .select({ timesheetId: timesheetEntries.timesheetId, minutes: sql<number>`sum(${timesheetEntries.minutes})` })
+              .from(timesheetEntries)
+              .where(inArray(timesheetEntries.timesheetId, sheetIds))
+              .groupBy(timesheetEntries.timesheetId)
+              .all()
+              .map((r) => [r.timesheetId, r.minutes])
+          : [],
+      );
       const rows = people
         .filter((e) => e.userId !== null && active.has(e.userId))
         .filter((e) => !["submitted", "approved"].includes(weeks.get(e.id)?.status ?? "draft"))
         .map((e) => ({ e, expected: availableMinutes(db, e.id, p.week, end), sheet: weeks.get(e.id) }))
         .filter(({ expected }) => expected > 0)
         .map(({ e, expected, sheet }) => {
-          const logged = sheet ? db.select({ minutes: timesheetEntries.minutes }).from(timesheetEntries).where(eq(timesheetEntries.timesheetId, sheet.id)).all().reduce((s, r) => s + r.minutes, 0) : 0;
+          const logged = sheet ? (loggedBySheet.get(sheet.id) ?? 0) : 0;
           return {
             code: e.employeeCode, name: e.displayName, department: e.department, manager: e.reportingManagerId ? (managers.get(e.reportingManagerId) ?? null) : null,
             status: sheet ? TIMESHEET_STATUS_LABELS[sheet.status] : "Not started", expected, logged,

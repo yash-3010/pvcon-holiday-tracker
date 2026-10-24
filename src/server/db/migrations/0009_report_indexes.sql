@@ -1,0 +1,1 @@
+CREATE INDEX `timesheet_entries_date_idx` ON `timesheet_entries` (`date`);

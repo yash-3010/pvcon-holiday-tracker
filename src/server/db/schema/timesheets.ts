@@ -98,6 +98,8 @@ export const timesheetEntries = sqliteTable(
   (t) => [
     uniqueIndex("timesheet_entries_cell_idx").on(t.timesheetId, t.projectId, t.taskCategoryId, t.date),
     index("timesheet_entries_project_date_idx").on(t.projectId, t.date),
+    // Reports select a date range across every project.
+    index("timesheet_entries_date_idx").on(t.date),
   ],
 );
 
