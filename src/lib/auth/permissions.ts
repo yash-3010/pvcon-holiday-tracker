@@ -41,6 +41,7 @@ export const PERMISSIONS = [
   "loan.manage",
   "claim.approve",
   "claim.pay",
+  "claim.view.all",
   "report.hr",
   "report.attendance",
   "report.timesheet",
@@ -88,6 +89,7 @@ const HR_ADMIN: Permission[] = [
   "leave.config",
   "leave.adjust",
   "holiday.manage",
+  "claim.view.all",
   "report.hr",
   "announcement.manage",
   "user.manage",
@@ -107,6 +109,7 @@ const PAYROLL_ADMIN: Permission[] = [
   "payroll.release",
   "loan.manage",
   "claim.pay",
+  "claim.view.all",
   "report.payroll",
 ];
 

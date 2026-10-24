@@ -2,8 +2,9 @@ import { eq } from "drizzle-orm";
 import { can } from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/types";
 import type { DbLike } from "@/server/db/client";
-import { employeeDocuments, leaveRequests, type FileRow } from "@/server/db/schema";
+import { employeeDocuments, expenseClaims, leaveRequests, type FileRow } from "@/server/db/schema";
 import { canDecideLeave } from "@/server/modules/leave/requests";
+import { canDecideClaim } from "@/server/modules/payroll/claims";
 import { getSetting } from "@/server/modules/settings/service";
 
 export type FileAccessResolver = (db: DbLike, user: SessionUser, file: FileRow) => boolean;
@@ -37,6 +38,18 @@ const RESOLVERS: FileAccessResolver[] = [
     return (
       !!request &&
       (user.employeeId === request.employeeId || can(user, "leave.view.all") || canDecideLeave(db, user, request.employeeId))
+    );
+  },
+  // An expense receipt is for the claimant, org-wide claim viewers and whoever may decide the claim.
+  (db, user, file) => {
+    const claim = db
+      .select({ employeeId: expenseClaims.employeeId })
+      .from(expenseClaims)
+      .where(eq(expenseClaims.receiptFileId, file.id))
+      .get();
+    return (
+      !!claim &&
+      (user.employeeId === claim.employeeId || can(user, "claim.view.all") || canDecideClaim(db, user, claim.employeeId))
     );
   },
 ];

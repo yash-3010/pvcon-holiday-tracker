@@ -328,7 +328,7 @@ export function revertRun(db: DbLike, runId: number): PayrollRunRow {
 function notifyReleased(db: DbLike, payslip: PayslipRow, period: string): void {
   const userId = db.select({ userId: employees.userId }).from(employees).where(eq(employees.id, payslip.employeeId)).get()?.userId;
   if (!userId) return;
-  notify(db, { userId, type: "payslip_released", title: `Your payslip for ${formatPeriod(period)} is ready`, link: `/me/payslips/${payslip.id}` });
+  notify(db, { userId, type: "payslip.released", title: `Your payslip for ${formatPeriod(period)} is ready`, link: `/me/payslips/${payslip.id}` });
 }
 
 /** Releases an approved run (spec §5.6 run step 6): its included payslips become visible to employees. Held ones wait. */

@@ -155,7 +155,7 @@ describe("release, payment and cancellation", () => {
     expect(slipOf(run.id, asha.id).releasedAt).toBe(NOV.now.toISOString());
     expect(slipOf(run.id, kiran.id).releasedAt).toBeNull();
     expect(db.select().from(notifications).where(eq(notifications.userId, ashaUserId)).all().map((n) => [n.type, n.title, n.link])).toEqual([
-      ["payslip_released", "Your payslip for November 2026 is ready", `/me/payslips/${slipOf(run.id, asha.id).id}`],
+      ["payslip.released", "Your payslip for November 2026 is ready", `/me/payslips/${slipOf(run.id, asha.id).id}`],
     ]);
 
     expectDomainError(() => releasePayslip(db, slipOf(run.id, asha.id).id, NOV), "NOT_HELD");
