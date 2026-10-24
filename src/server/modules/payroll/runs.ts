@@ -1,15 +1,18 @@
-import { and, eq, gt, inArray, lt, ne, notInArray } from "drizzle-orm";
-import { addMonths, formatPeriod, periodOf, type ISODate } from "@/lib/dates";
+import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, ne, notInArray, sql } from "drizzle-orm";
+import { addMonths, formatPeriod, monthRange, periodOf, type ISODate } from "@/lib/dates";
 import { calculatePayslip, type CalcComponent, type CalcInput } from "@/lib/payroll/calculate";
 import { CLOSED_RUN_STATUSES, type PayslipStatus, type RunType } from "@/lib/payroll/constants";
 import type { DbLike } from "@/server/db/client";
 import {
-  departments, designations, employees, payrollInputs, payrollRuns, payslipLines, payslips, salaryComponents, salaryStructures,
-  type EmployeeRow, type EmployeeSalaryRow, type PayrollRunRow, type PayslipRow, type PayslipSnapshot,
+  attendanceDays, compOffClaims, departments, designations, employees, expenseClaims, loanRepayments, loans, payrollInputs, payrollRuns,
+  payslipLines, payslips, salaryComponents, salaryStructures, type EmployeeRow, type EmployeeSalaryRow, type PayrollRunRow, type PayslipRow,
+  type PayslipSnapshot,
 } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
+import { fillMissingAttendance } from "@/server/modules/attendance/compute";
 import { bankView } from "@/server/modules/employees/sensitive";
-import { assertEditable, employedInPeriod, refreshSystemInputs, requireRun } from "./inputs";
+import { notify } from "@/server/modules/notifications/service";
+import { assertEditable, employedInPeriod, loanOutstanding, refreshSystemInputs, requireRun } from "./inputs";
 import { periodVariables } from "./period";
 import { effectiveSalary } from "./salaries";
 import { applyOverrides, structureComponents } from "./structures";
@@ -182,4 +185,197 @@ export function setPayslipStatus(db: DbLike, runId: number, employeeId: number, 
   if (!payslip) throw new DomainError("NOT_FOUND", "Payslip not found.");
   if (status !== "excluded" && payslip.error) throw new DomainError("PAYSLIP_ERROR", `Fix the error first: ${payslip.error}`);
   return db.update(payslips).set({ status }).where(eq(payslips.id, payslip.id)).returning().get()!;
+}
+
+/** Requires the run to be in `status`. Released and paid runs are immutable (RUN_LOCKED). */
+function assertStatus(run: PayrollRunRow, status: PayrollRunRow["status"], code: string, message: string): void {
+  if (run.status === status) return;
+  if (["released", "paid"].includes(run.status)) {
+    throw new DomainError("RUN_LOCKED", "Released runs never change; correct them through the next period's inputs.");
+  }
+  throw new DomainError(code, message);
+}
+
+function runPayslips(db: DbLike, runId: number): PayslipRow[] {
+  return db.select().from(payslips).where(eq(payslips.runId, runId)).all();
+}
+
+/** Comp-off payout claims a payslip counted: approved for payout, unpaid, and decided by the period end and the compute. */
+function compOffPayoutsFor(run: PayrollRunRow, employeeIds: number[]) {
+  const { end } = monthRange(run.period);
+  return and(
+    inArray(compOffClaims.employeeId, employeeIds),
+    eq(compOffClaims.status, "approved"),
+    eq(compOffClaims.resolution, "payout"),
+    isNull(compOffClaims.paidRunId),
+    lte(compOffClaims.decidedAt, run.computedAt ?? ""),
+    lte(sql`substr(${compOffClaims.decidedAt}, 1, 10)`, end),
+  );
+}
+
+/**
+ * Approves a computed run (spec §5.6 run step 5): by someone other than the person who computed it, with no payslip
+ * errors. For every included or held payslip it locks the period's attendance, marks the run's expense claims paid,
+ * writes loan repayments (closing repaid loans) and marks the comp-off payouts paid.
+ */
+export function approveRun(
+  db: DbLike,
+  actorUserId: number,
+  runId: number,
+  { now }: { now: Date },
+): PayrollRunRow {
+  const run = requireRun(db, runId);
+  if (run.status === "draft") throw new DomainError("NOT_COMPUTED", "Compute the run first.");
+  assertStatus(run, "computed", "RUN_LOCKED", `This run is ${run.status}.`);
+  if (run.computedBy === actorUserId) {
+    throw new DomainError("SAME_PERSON", "Someone other than the person who computed the run must approve it.");
+  }
+  const all = runPayslips(db, run.id);
+  const errors = all.filter((p) => p.error).length;
+  if (errors) throw new DomainError("PAYSLIP_ERRORS", `${errors} payslip(s) have errors. Fix them and compute again.`);
+  const paid = all.filter((p) => p.status !== "excluded");
+  const paidIds = paid.map((p) => p.employeeId);
+
+  if (run.type === "regular" && paidIds.length) {
+    const { start, end } = monthRange(run.period);
+    fillMissingAttendance(db, start, end, { now });
+    db.update(attendanceDays)
+      .set({ locked: true })
+      .where(and(inArray(attendanceDays.employeeId, paidIds), gte(attendanceDays.date, start), lte(attendanceDays.date, end)))
+      .run();
+    db.update(compOffClaims).set({ paidRunId: run.id }).where(compOffPayoutsFor(run, paidIds)).run();
+  }
+
+  const inputs = paidIds.length
+    ? db.select().from(payrollInputs).where(and(eq(payrollInputs.runId, run.id), inArray(payrollInputs.employeeId, paidIds))).orderBy(asc(payrollInputs.id)).all()
+    : [];
+  const claimIds = inputs.filter((i) => i.source === "claim" && i.sourceId !== null).map((i) => i.sourceId!);
+  if (claimIds.length) {
+    db.update(expenseClaims).set({ status: "paid", paidRunId: run.id, financeBy: actorUserId }).where(inArray(expenseClaims.id, claimIds)).run();
+  }
+  for (const payslip of paid) {
+    // Loan lines follow the loan inputs' order; their amounts are what was deducted after any capping.
+    const loanInputs = inputs.filter((i) => i.employeeId === payslip.employeeId && i.source === "loan");
+    if (!loanInputs.length) continue;
+    const lines = db
+      .select()
+      .from(payslipLines)
+      .where(and(eq(payslipLines.payslipId, payslip.id), eq(payslipLines.source, "loan")))
+      .orderBy(asc(payslipLines.sortOrder))
+      .all();
+    loanInputs.forEach((input, i) => {
+      const amount = lines[i]?.amount ?? 0;
+      if (amount <= 0) return;
+      const loan = db.select().from(loans).where(eq(loans.id, input.sourceId!)).get();
+      if (!loan) return;
+      db.insert(loanRepayments).values({ loanId: loan.id, runId: run.id, payslipId: payslip.id, period: run.period, amount }).run();
+      if (loanOutstanding(db, loan.id, loan.principal) === 0) db.update(loans).set({ status: "closed" }).where(eq(loans.id, loan.id)).run();
+    });
+  }
+
+  return db
+    .update(payrollRuns)
+    .set({ status: "approved", approvedBy: actorUserId, approvedAt: now.toISOString() })
+    .where(eq(payrollRuns.id, run.id))
+    .returning()
+    .get()!;
+}
+
+/**
+ * Takes an approved run back to computed (spec §5.6 "Revert"): unlocks its attendance, puts its claims back to
+ * approved, deletes its loan repayments (reopening loans they closed) and unmarks its comp-off payouts. Not once a later
+ * regular run exists.
+ */
+export function revertRun(db: DbLike, runId: number): PayrollRunRow {
+  const run = requireRun(db, runId);
+  assertStatus(run, "approved", "NOT_APPROVED", "Only an approved run can be reverted.");
+  if (run.type === "regular") {
+    const later = db
+      .select()
+      .from(payrollRuns)
+      .where(and(eq(payrollRuns.type, "regular"), LIVE, gt(payrollRuns.period, run.period)))
+      .get();
+    if (later) throw new DomainError("LATER_RUN", `Cancel the ${formatPeriod(later.period)} run first.`);
+    const employeeIds = runPayslips(db, run.id).map((p) => p.employeeId);
+    if (employeeIds.length) {
+      const { start, end } = monthRange(run.period);
+      db.update(attendanceDays)
+        .set({ locked: false })
+        .where(and(inArray(attendanceDays.employeeId, employeeIds), gte(attendanceDays.date, start), lte(attendanceDays.date, end)))
+        .run();
+    }
+  }
+  db.update(expenseClaims).set({ status: "approved", paidRunId: null, financeBy: null }).where(eq(expenseClaims.paidRunId, run.id)).run();
+  db.update(compOffClaims).set({ paidRunId: null }).where(eq(compOffClaims.paidRunId, run.id)).run();
+  const repaid = db.select().from(loanRepayments).where(eq(loanRepayments.runId, run.id)).all();
+  db.delete(loanRepayments).where(eq(loanRepayments.runId, run.id)).run();
+  for (const loanId of new Set(repaid.map((r) => r.loanId))) {
+    const loan = db.select().from(loans).where(eq(loans.id, loanId)).get();
+    if (loan?.status === "closed" && loanOutstanding(db, loan.id, loan.principal) > 0) {
+      db.update(loans).set({ status: "active" }).where(eq(loans.id, loan.id)).run();
+    }
+  }
+  return db
+    .update(payrollRuns)
+    .set({ status: "computed", approvedBy: null, approvedAt: null })
+    .where(eq(payrollRuns.id, run.id))
+    .returning()
+    .get()!;
+}
+
+function notifyReleased(db: DbLike, payslip: PayslipRow, period: string): void {
+  const userId = db.select({ userId: employees.userId }).from(employees).where(eq(employees.id, payslip.employeeId)).get()?.userId;
+  if (!userId) return;
+  notify(db, { userId, type: "payslip_released", title: `Your payslip for ${formatPeriod(period)} is ready`, link: `/me/payslips/${payslip.id}` });
+}
+
+/** Releases an approved run (spec §5.6 run step 6): its included payslips become visible to employees. Held ones wait. */
+export function releaseRun(db: DbLike, runId: number, { now }: { now: Date }): { run: PayrollRunRow; payslipIds: number[] } {
+  const run = requireRun(db, runId);
+  if (run.status !== "approved") throw new DomainError("NOT_APPROVED", "Approve the run before releasing it.");
+  const at = now.toISOString();
+  const released = runPayslips(db, run.id).filter((p) => p.status === "ok");
+  for (const payslip of released) {
+    db.update(payslips).set({ releasedAt: at }).where(eq(payslips.id, payslip.id)).run();
+    notifyReleased(db, payslip, run.period);
+  }
+  const updated = db.update(payrollRuns).set({ status: "released", releasedAt: at }).where(eq(payrollRuns.id, run.id)).returning().get()!;
+  return { run: updated, payslipIds: released.map((p) => p.id) };
+}
+
+/** Releases a payslip held when its run was released. */
+export function releasePayslip(db: DbLike, payslipId: number, { now }: { now: Date }): PayslipRow {
+  const payslip = db.select().from(payslips).where(eq(payslips.id, payslipId)).get();
+  if (!payslip) throw new DomainError("NOT_FOUND", "Payslip not found.");
+  const run = requireRun(db, payslip.runId);
+  if (payslip.status !== "hold" || payslip.releasedAt) throw new DomainError("NOT_HELD", "Only a held payslip can be released on its own.");
+  if (run.status !== "released" && run.status !== "paid") throw new DomainError("NOT_RELEASED", "Release the run first.");
+  const updated = db.update(payslips).set({ status: "ok", releasedAt: now.toISOString() }).where(eq(payslips.id, payslip.id)).returning().get()!;
+  notifyReleased(db, updated, run.period);
+  return updated;
+}
+
+/** Records the bank payment of a released run (spec §5.6 run step 7). */
+export function markPaid(
+  db: DbLike,
+  runId: number,
+  { paidOn, reference }: { paidOn: ISODate; reference: string | null },
+  { now }: { now: Date },
+): PayrollRunRow {
+  const run = requireRun(db, runId);
+  if (run.status !== "released") throw new DomainError("NOT_RELEASED", "Release the run before marking it paid.");
+  return db
+    .update(payrollRuns)
+    .set({ status: "paid", paidOn, paymentRef: reference, paidAt: now.toISOString() })
+    .where(eq(payrollRuns.id, run.id))
+    .returning()
+    .get()!;
+}
+
+/** Cancels a run that isn't approved yet; its payslips go, its inputs stay for the record. */
+export function cancelRun(db: DbLike, runId: number): PayrollRunRow {
+  const run = requireRun(db, runId);
+  assertEditable(run);
+  db.delete(payslips).where(eq(payslips.runId, run.id)).run();
+  return db.update(payrollRuns).set({ status: "cancelled" }).where(eq(payrollRuns.id, run.id)).returning().get()!;
 }
