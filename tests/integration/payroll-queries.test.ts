@@ -8,8 +8,8 @@ import { seedDefaultLeaveTypes } from "@/server/modules/leave/types";
 import { componentByCode } from "@/server/modules/payroll/components";
 import { addManualInput } from "@/server/modules/payroll/inputs";
 import {
-  listClaims, listLoans, listRuns, listSalaries, myClaims, myPayslips, myYearStatement, payslipDetail, pendingClaimsFor, runDetail,
-  verificationLog,
+  employeeSalaryView, listClaims, listLoans, listRuns, listSalaries, myClaims, myPayslips, myYearStatement, payslipDetail, pendingClaimsFor,
+  runDetail, structureOptions, verificationLog,
 } from "@/server/modules/payroll/queries";
 import { approveRun, computeRun, createRun } from "@/server/modules/payroll/runs";
 import { reviseSalary } from "@/server/modules/payroll/salaries";
@@ -105,6 +105,25 @@ describe("my payslips", () => {
     expect(statement.lines.find((l) => l.code === "BASIC")).toMatchObject({ kind: "earning", amounts: [5_000_000, 5_000_000], total: 10_000_000 });
     expect(statement.lines.find((l) => l.code === "BONUS")).toMatchObject({ amounts: [0, 2_000_000], total: 2_000_000 });
     expect(statement.totals).toMatchObject({ grossEarnings: 22_000_000, netPay: 22_000_000 });
+  });
+});
+
+describe("salary views", () => {
+  it("shows the current breakdown and the history, marking corrected revisions", () => {
+    const structureId = db.select().from(salaryStructures).get()!.id;
+    const raise = reviseSalary(db, makerId, {
+      employeeId: asha.employee.id, effectiveFrom: "2026-10-01", annualCtc: 150_000_000, structureId, overrides: { HRA: 2_000_000 }, reason: "Promotion",
+    });
+    const view = employeeSalaryView(db, asha.employee.id, "2026-11")!;
+    expect(view.current).toMatchObject({ salaryId: raise.id, annualCtc: 150_000_000, structure: "Standard", effectiveFrom: "2026-10-01" });
+    expect(view.current!.lines.map((l) => [l.code, l.monthly, l.annual])).toEqual([
+      ["BASIC", 6_250_000, 75_000_000], ["HRA", 2_000_000, 24_000_000], ["SPECIAL", 4_250_000, 51_000_000],
+    ]);
+    expect(view.history.map((h) => [h.effectiveFrom, h.annualCtc, h.reason, h.createdByName])).toEqual([
+      ["2026-10-01", 150_000_000, "Promotion", "Test User"], ["2026-04-01", 120_000_000, null, "Test User"],
+    ]);
+    expect(employeeSalaryView(db, insertEmployee(db).id, "2026-11")).toEqual({ current: null, history: [] });
+    expect(structureOptions(db).map((s) => [s.name, s.components.map((c) => c.code).slice(0, 3)])).toEqual([["Standard", ["BASIC", "HRA", "SPECIAL"]]]);
   });
 });
 

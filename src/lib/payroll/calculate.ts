@@ -25,6 +25,15 @@ export interface CalcComponent {
   inCtc: boolean;
 }
 
+/** Employee overrides: an amount (paise) makes the component fixed at it, text makes it a formula. */
+export function applyOverrides(components: readonly CalcComponent[], overrides: Readonly<Record<string, number | string>>): CalcComponent[] {
+  return components.map((c) => {
+    const o = overrides[c.code];
+    if (o === undefined) return c;
+    return typeof o === "number" ? { ...c, calc: "fixed", value: o, formula: null } : { ...c, calc: "formula", formula: o, value: null };
+  });
+}
+
 export interface CalcInput {
   code: string;
   amount: Minor;

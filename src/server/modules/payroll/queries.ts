@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, lte, ne, type SQL } from "
 import { can } from "@/lib/auth/permissions";
 import { addMonths, fiscalYearOf, type ISODate } from "@/lib/dates";
 import type { Minor } from "@/lib/money";
+import type { CalcComponent } from "@/lib/payroll/calculate";
 import {
   type ClaimStatus, type ComponentKind, type InputSource, type LoanStatus, type PayslipStatus, type RunStatus, type RunType,
 } from "@/lib/payroll/constants";
@@ -13,6 +14,8 @@ import {
 import type { ScopeUser } from "@/server/modules/employees/scope";
 import { getSetting } from "@/server/modules/settings/service";
 import { canDecideClaim } from "./claims";
+import { salaryPreview } from "./salaries";
+import { structureComponents } from "./structures";
 
 export interface RunListItem {
   id: number;
@@ -256,16 +259,19 @@ export interface SalaryListItem {
   code: string;
   name: string;
   status: string;
+  dateOfJoining: ISODate;
   salaryId: number | null;
   effectiveFrom: ISODate | null;
   annualCtc: Minor | null;
+  structureId: number | null;
   structure: string | null;
+  overrides: Record<string, number | string>;
 }
 
 /** Current employees with the salary effective for `period` (null when none). */
 export function listSalaries(db: DbLike, { period }: { period: string }): SalaryListItem[] {
   const people = db
-    .select({ id: employees.id, code: employees.employeeCode, name: employees.displayName, status: employees.status })
+    .select({ id: employees.id, code: employees.employeeCode, name: employees.displayName, status: employees.status, dateOfJoining: employees.dateOfJoining })
     .from(employees)
     .where(inArray(employees.status, ["active", "on_notice"]))
     .orderBy(asc(employees.employeeCode))
@@ -280,10 +286,83 @@ export function listSalaries(db: DbLike, { period }: { period: string }): Salary
   return people.map((p) => {
     const current = salaries.find((s) => s.salary.employeeId === p.id);
     return {
-      employeeId: p.id, code: p.code, name: p.name, status: p.status, salaryId: current?.salary.id ?? null,
-      effectiveFrom: current?.salary.effectiveFrom ?? null, annualCtc: current?.salary.annualCtc ?? null, structure: current?.structure ?? null,
+      employeeId: p.id, code: p.code, name: p.name, status: p.status, dateOfJoining: p.dateOfJoining, salaryId: current?.salary.id ?? null,
+      effectiveFrom: current?.salary.effectiveFrom ?? null, annualCtc: current?.salary.annualCtc ?? null,
+      structureId: current?.salary.structureId ?? null, structure: current?.structure ?? null, overrides: current?.salary.overrides ?? {},
     };
   });
+}
+
+export interface StructureOption {
+  id: number;
+  name: string;
+  components: CalcComponent[];
+}
+
+/** Active structures with their components, for the salary revision sheet's live breakdown. */
+export function structureOptions(db: DbLike): StructureOption[] {
+  return db
+    .select()
+    .from(salaryStructures)
+    .where(eq(salaryStructures.archived, false))
+    .orderBy(asc(salaryStructures.name))
+    .all()
+    .map((s) => ({ id: s.id, name: s.name, components: structureComponents(db, s.id) }));
+}
+
+export interface EmployeeSalaryView {
+  current: {
+    salaryId: number;
+    effectiveFrom: ISODate;
+    annualCtc: Minor;
+    structureId: number;
+    structure: string;
+    overrides: Record<string, number | string>;
+    lines: { code: string; name: string; kind: ComponentKind; monthly: Minor; annual: Minor }[];
+    grossMonthly: Minor;
+    netMonthly: Minor;
+  } | null;
+  history: {
+    id: number;
+    effectiveFrom: ISODate;
+    annualCtc: Minor;
+    structure: string;
+    reason: string | null;
+    createdByName: string | null;
+    createdAt: string;
+    /** A later row for the same month replaced it after payroll had used it. */
+    corrected: boolean;
+  }[];
+}
+
+/** An employee's salary for `period` with its full-month breakdown, and every revision (spec §5.6 "Salary assignment"). */
+export function employeeSalaryView(db: DbLike, employeeId: number, period: string): EmployeeSalaryView {
+  const history = db
+    .select({ salary: employeeSalaries, structure: salaryStructures.name, createdByName: users.name })
+    .from(employeeSalaries)
+    .innerJoin(salaryStructures, eq(salaryStructures.id, employeeSalaries.structureId))
+    .leftJoin(users, eq(users.id, employeeSalaries.createdBy))
+    .where(eq(employeeSalaries.employeeId, employeeId))
+    .orderBy(desc(employeeSalaries.effectiveFrom), desc(employeeSalaries.id))
+    .all();
+  const current = history.find((h) => h.salary.effectiveFrom <= `${period}-01`);
+  let view: EmployeeSalaryView["current"] = null;
+  if (current) {
+    const preview = salaryPreview(db, { structureId: current.salary.structureId, annualCtc: current.salary.annualCtc, overrides: current.salary.overrides });
+    view = {
+      salaryId: current.salary.id, effectiveFrom: current.salary.effectiveFrom, annualCtc: current.salary.annualCtc,
+      structureId: current.salary.structureId, structure: current.structure, overrides: current.salary.overrides,
+      lines: preview.lines.map((l) => ({ ...l, kind: l.kind as ComponentKind })), grossMonthly: preview.grossMonthly, netMonthly: preview.netMonthly,
+    };
+  }
+  return {
+    current: view,
+    history: history.map((h, i) => ({
+      id: h.salary.id, effectiveFrom: h.salary.effectiveFrom, annualCtc: h.salary.annualCtc, structure: h.structure, reason: h.salary.reason,
+      createdByName: h.createdByName, createdAt: h.salary.createdAt,
+      corrected: history.slice(0, i).some((later) => later.salary.effectiveFrom === h.salary.effectiveFrom),
+    })),
+  };
 }
 
 export interface LoanListItem extends LoanRow {

@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
-import { calculatePayslip, type CalcComponent, type PayslipCalcResult } from "@/lib/payroll/calculate";
+import { applyOverrides, calculatePayslip, type CalcComponent, type PayslipCalcResult } from "@/lib/payroll/calculate";
 import type { Minor } from "@/lib/money";
 import type { ComponentInput, StructureInput } from "@/lib/validation/payroll";
 import type { DbLike } from "@/server/db/client";
@@ -8,6 +8,8 @@ import {
 } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { componentByCode, createComponent, updateComponentRow } from "./components";
+
+export { applyOverrides };
 
 export function requireStructure(db: DbLike, id: number): SalaryStructureRow {
   const row = db.select().from(salaryStructures).where(eq(salaryStructures.id, id)).get();
@@ -46,15 +48,6 @@ export function structureLines(db: DbLike, structureId: number): Line[] {
 
 export function structureComponents(db: DbLike, structureId: number): CalcComponent[] {
   return componentsForLines(db, structureLines(db, structureId));
-}
-
-/** Employee overrides: an amount makes the component fixed at it, text makes it a formula. */
-export function applyOverrides(components: readonly CalcComponent[], overrides: Readonly<Record<string, number | string>>): CalcComponent[] {
-  return components.map((c) => {
-    const o = overrides[c.code];
-    if (o === undefined) return c;
-    return typeof o === "number" ? { ...c, calc: "fixed", value: o, formula: null } : { ...c, calc: "formula", formula: o, value: null };
-  });
 }
 
 /** A full month of 30 paid days, for previews and validation. */

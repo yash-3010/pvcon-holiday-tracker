@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Landmark, Timer } from "lucide-react";
+import { Timer } from "lucide-react";
 import { EmployeeAttendanceTab } from "@/components/attendance/employee-attendance-tab";
+import { EmployeeSalaryTab } from "@/components/payroll/employee-salary-tab";
 import { EmployeeTimesheetsTab } from "@/components/timesheets/employee-timesheets-tab";
 import { ChecklistCard } from "@/components/employees/checklist-card";
 import { bankDetailItems, DetailList } from "@/components/employees/detail-list";
@@ -32,6 +33,7 @@ import { employeeOptions, getEmployeeDetail, listEmployeeEvents, unlinkedUserOpt
 import { canViewEmployee, getReportingTree, isManagerAbove } from "@/server/modules/employees/scope";
 import { leaveYearStartMonth } from "@/server/modules/leave/ledger";
 import { employeeLeaveSummary } from "@/server/modules/leave/queries";
+import { employeeSalaryView, structureOptions } from "@/server/modules/payroll/queries";
 import { departmentOptions, designationOptions } from "@/server/modules/org/queries";
 import { getSetting } from "@/server/modules/settings/service";
 import { BankForm } from "./bank-form";
@@ -267,7 +269,14 @@ export default async function EmployeeProfilePage({
 
         {can(user, "salary.view") && (
           <TabsContent value="salary">
-            <EmptyState icon={Landmark} title="Salary arrives with payroll" description="Salary history and revisions are available after Phase 5." />
+            <EmployeeSalaryTab
+              employee={{ id, name: employee.displayName, dateOfJoining: employee.dateOfJoining, exited: employee.status === "exited" }}
+              view={employeeSalaryView(db, id, today.slice(0, 7))}
+              structures={can(user, "salary.manage") ? structureOptions(db) : []}
+              canManage={can(user, "salary.manage")}
+              period={today.slice(0, 7)}
+              timeZone={timeZone}
+            />
           </TabsContent>
         )}
         <TabsContent value="attendance">
