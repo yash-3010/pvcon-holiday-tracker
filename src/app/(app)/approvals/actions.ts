@@ -17,6 +17,7 @@ import { approveLeave, bulkApproveLeave, rejectLeave } from "@/server/modules/le
 import { getSetting } from "@/server/modules/settings/service";
 import { timesheetDetailForApprover } from "@/server/modules/timesheets/queries";
 import { approveTimesheet, bulkApproveTimesheets, rejectTimesheet } from "@/server/modules/timesheets/service";
+import { approveClaim, rejectClaim } from "@/server/modules/payroll/claims";
 
 export const decideProfileChangeAction = defineAction({
   name: "approvals.profile_change",
@@ -154,4 +155,21 @@ export const timesheetDetailAction = defineAction({
     if (!detail) throw new DomainError("NOT_FOUND", "Timesheet not found.");
     return detail;
   },
+});
+
+export const decideClaimAction = defineAction({
+  name: "approvals.claim",
+  schema: decisionSchema,
+  // Scope (manager above or org-wide claim approver, never one's own) is checked by the service.
+  permission: "claim.approve",
+  handler: ({ tx, user, audit }, { id, decision, note }) => {
+    const now = new Date();
+    const claim = decision === "approved" ? approveClaim(tx, user, id, note, { now, today: dateInTimeZone(now, getSetting(tx, "locale").timezone) }) : rejectClaim(tx, user, id, note);
+    audit({
+      action: decision === "approved" ? "claim.approve" : "claim.reject", entityType: "expense_claim", entityId: id,
+      summary: `${decision === "approved" ? "Approved" : "Rejected"} a ${claim.category} claim of ${claim.claimDate}`,
+    });
+    return { status: claim.status };
+  },
+  revalidate: ["/approvals", "/me/claims", "/payroll/claims"],
 });

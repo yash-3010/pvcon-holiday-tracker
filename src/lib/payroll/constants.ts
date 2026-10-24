@@ -74,6 +74,13 @@ export const CLAIM_STATUS_LABELS: Record<ClaimStatus, string> = {
   rejected: "Rejected",
   paid: "Paid",
 };
+export const CLAIM_STATUS_BADGE: Record<ClaimStatus, "secondary" | "info" | "success" | "destructive" | "default"> = {
+  draft: "secondary",
+  submitted: "info",
+  approved: "success",
+  rejected: "destructive",
+  paid: "default",
+};
 export const CLAIM_CATEGORIES = ["travel", "meals", "internet", "equipment", "training", "other"] as const;
 export type ClaimCategory = (typeof CLAIM_CATEGORIES)[number];
 export const CLAIM_CATEGORY_LABELS: Record<ClaimCategory, string> = {
