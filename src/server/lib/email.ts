@@ -15,6 +15,25 @@ export function isEmailConfigured(): boolean {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM);
 }
 
+export interface SmtpStatus {
+  configured: boolean;
+  host: string | null;
+  port: number;
+  secure: boolean;
+  from: string | null;
+  /** Whether a user name is set; the password is never shown. */
+  authenticated: boolean;
+}
+
+/** The SMTP settings from the environment, for the settings page (spec §5.11). Holds no secrets. */
+export function smtpStatus(): SmtpStatus {
+  const port = Number(process.env.SMTP_PORT ?? 587);
+  return {
+    configured: isEmailConfigured(), host: process.env.SMTP_HOST || null, port, secure: port === 465, from: process.env.SMTP_FROM || null,
+    authenticated: Boolean(process.env.SMTP_USER),
+  };
+}
+
 function getTransporter(): Transporter {
   if (!transporter) {
     const port = Number(process.env.SMTP_PORT ?? 587);

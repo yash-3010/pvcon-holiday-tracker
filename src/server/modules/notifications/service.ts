@@ -1,4 +1,5 @@
 import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import type { EmailMode } from "@/lib/notifications";
 import type { DbLike } from "@/server/db/client";
 import { nowIso } from "@/server/db/columns";
 import { EMAIL_STATUSES, notifications, users } from "@/server/db/schema";
@@ -76,4 +77,21 @@ export function markRead(db: DbLike, userId: number, ids: number[] | "all", now:
   const base = and(eq(notifications.userId, userId), isNull(notifications.readAt));
   const where = ids === "all" ? base : and(base, inArray(notifications.id, ids.length ? ids : [-1]));
   return db.update(notifications).set({ readAt: now }).where(where).run().changes;
+}
+
+export function emailModeOf(db: DbLike, userId: number): EmailMode {
+  return db.select({ mode: users.emailMode }).from(users).where(eq(users.id, userId)).get()?.mode ?? "instant";
+}
+
+/**
+ * Saves a user's email mode and moves their unsent email copies with it: instant ones join the digest, digest ones
+ * go out at once, and turning email off drops both.
+ */
+export function setEmailMode(db: DbLike, userId: number, mode: EmailMode): { before: EmailMode; after: EmailMode } {
+  const before = emailModeOf(db, userId);
+  db.update(users).set({ emailMode: mode }).where(eq(users.id, userId)).run();
+  const waiting = inArray(notifications.emailStatus, ["pending", "digest"]);
+  const status = mode === "off" ? "skipped" : mode === "digest" ? "digest" : "pending";
+  db.update(notifications).set({ emailStatus: status }).where(and(eq(notifications.userId, userId), waiting)).run();
+  return { before, after: mode };
 }

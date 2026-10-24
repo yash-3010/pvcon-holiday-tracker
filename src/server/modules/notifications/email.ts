@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, count, eq, gt, gte, inArray, lt, type SQL } from "drizzle-orm";
 import type { DbLike } from "@/server/db/client";
 import { notifications, users } from "@/server/db/schema";
 import { isEmailConfigured, renderEmail, sendEmail } from "@/server/lib/email";
@@ -112,4 +112,25 @@ export async function deliverDigests(db: DbLike, { now, appUrl }: DeliveryOption
     }
   }
   return sent;
+}
+
+export interface OutboxCounts {
+  /** Waiting for the 10-minute job, including retries. */
+  pending: number;
+  /** Waiting for the morning digest. */
+  digest: number;
+  sentLastDay: number;
+  /** Given up on after three failed attempts, among the last day's notifications. */
+  failedLastDay: number;
+}
+
+export function emailOutbox(db: DbLike, now: Date): OutboxCounts {
+  const dayAgo = new Date(now.getTime() - 86_400_000).toISOString();
+  const n = (where: SQL | undefined) => db.select({ n: count() }).from(notifications).where(where).get()?.n ?? 0;
+  return {
+    pending: n(inArray(notifications.emailStatus, ["pending", "sending"])),
+    digest: n(eq(notifications.emailStatus, "digest")),
+    sentLastDay: n(and(eq(notifications.emailStatus, "sent"), gte(notifications.emailedAt, dayAgo))),
+    failedLastDay: n(and(eq(notifications.emailStatus, "skipped"), gt(notifications.emailAttempts, 0), gte(notifications.createdAt, dayAgo))),
+  };
 }

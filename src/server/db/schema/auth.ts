@@ -1,5 +1,6 @@
 import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { ROLES } from "../../../lib/auth/permissions";
+import { EMAIL_MODES } from "../../../lib/notifications";
 import { nowIso, timestamps } from "../columns";
 
 export const users = sqliteTable("users", {
@@ -14,7 +15,7 @@ export const users = sqliteTable("users", {
   lockedUntil: text("locked_until"),
   lastLoginAt: text("last_login_at"),
   /** How notifications reach the user by email: each at once, a daily digest, or not at all. */
-  emailMode: text("email_mode", { enum: ["instant", "digest", "off"] }).notNull().default("instant"),
+  emailMode: text("email_mode", { enum: EMAIL_MODES }).notNull().default("instant"),
   ...timestamps(),
 });
 
