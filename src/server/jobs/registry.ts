@@ -1,6 +1,8 @@
 import type { DbLike } from "@/server/db/client";
 import { getSetting } from "@/server/modules/settings/service";
-import { runJob, type JobOutcome } from "./runner";
+import { notificationsDigestJob } from "./notifications-digest";
+import { notificationsSendJob } from "./notifications-send";
+import { runJob, runJobAsync, type JobOutcome } from "./runner";
 import { systemCleanupJob } from "./system-cleanup";
 import { employeeLifecycleJob } from "./employee-lifecycle";
 import { leaveAccrueJob } from "./leave-accrue";
@@ -18,12 +20,14 @@ export interface JobDefinition {
   runKey: (now: Date, timeZone: string, db: DbLike) => string;
   /** Synchronous; runs inside a transaction. Returns a human-readable summary. */
   run: (db: DbLike, now: Date, timeZone: string) => string;
+  /** Async work after the transaction (email). Such jobs run through `runJobByNameAsync`. */
+  deliver?: (db: DbLike, now: Date) => Promise<string>;
 }
 
 /** Every scheduled job. Later phases append their jobs here. */
 export const JOBS: JobDefinition[] = [
   systemCleanupJob, employeeLifecycleJob, leaveAccrueJob, leaveYearEndJob, attendanceCloseDayJob, compOffExpireJob,
-  timesheetRemindEmployeesJob, timesheetRemindApproversJob,
+  timesheetRemindEmployeesJob, timesheetRemindApproversJob, notificationsSendJob, notificationsDigestJob,
 ];
 
 export function findJob(name: string): JobDefinition | undefined {
@@ -35,4 +39,14 @@ export function runJobByName(db: DbLike, name: string, now: Date = new Date()): 
   if (!job) return { status: "failed", detail: `Unknown job: ${name}` };
   const timeZone = getSetting(db, "locale").timezone;
   return runJob(db, job.name, job.runKey(now, timeZone, db), (tx) => job.run(tx, now, timeZone), now);
+}
+
+/** Runs any job, awaiting its delivery when it has one. The cron route and Settings → Jobs use this. */
+export async function runJobByNameAsync(db: DbLike, name: string, now: Date = new Date()): Promise<JobOutcome> {
+  const job = findJob(name);
+  if (!job) return { status: "failed", detail: `Unknown job: ${name}` };
+  if (!job.deliver) return runJobByName(db, name, now);
+  const timeZone = getSetting(db, "locale").timezone;
+  const deliver = job.deliver;
+  return runJobAsync(db, job.name, job.runKey(now, timeZone, db), (tx) => job.run(tx, now, timeZone), () => deliver(db, now), now);
 }

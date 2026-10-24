@@ -66,7 +66,7 @@ describe("registry", () => {
     ]).run();
 
     const outcome = runJobByName(db, "system:cleanup", now);
-    expect(outcome).toEqual({ status: "succeeded", detail: "Deleted 2 reset tokens and 1 old notifications" });
+    expect(outcome).toEqual({ status: "succeeded", detail: "Deleted 2 reset tokens, 1 old notifications and 0 email job runs" });
     expect(db.select().from(passwordResetTokens).all().map((t) => t.tokenHash)).toEqual(["valid"]);
     expect(db.select().from(notifications).all().map((n) => n.title).sort()).toEqual(["old unread", "recent read"]);
     const run = db.select().from(jobRuns).where(eq(jobRuns.job, "system:cleanup")).get()!;

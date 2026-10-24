@@ -1,11 +1,11 @@
-import { and, isNotNull, lt, or } from "drizzle-orm";
+import { and, eq, isNotNull, lt, or } from "drizzle-orm";
 import { dateInTimeZone } from "@/lib/dates";
-import { notifications, passwordResetTokens } from "@/server/db/schema";
+import { jobRuns, notifications, passwordResetTokens } from "@/server/db/schema";
 import type { JobDefinition } from "./registry";
 
 export const systemCleanupJob: JobDefinition = {
   name: "system:cleanup",
-  description: "Deletes used or expired password-reset tokens and read notifications older than 90 days.",
+  description: "Deletes used or expired password-reset tokens, read notifications older than 90 days and week-old runs of the 10-minute email job.",
   runKey: (now, timeZone) => dateInTimeZone(now, timeZone),
   run: (db, now) => {
     const nowIso = now.toISOString();
@@ -18,6 +18,8 @@ export const systemCleanupJob: JobDefinition = {
       .delete(notifications)
       .where(and(isNotNull(notifications.readAt), lt(notifications.createdAt, cutoff)))
       .run().changes;
-    return `Deleted ${tokens} reset tokens and ${old} old notifications`;
+    const weekAgo = new Date(now.getTime() - 7 * 86_400_000).toISOString();
+    const runs = db.delete(jobRuns).where(and(eq(jobRuns.job, "notifications:send"), lt(jobRuns.startedAt, weekAgo))).run().changes;
+    return `Deleted ${tokens} reset tokens, ${old} old notifications and ${runs} email job runs`;
   },
 };

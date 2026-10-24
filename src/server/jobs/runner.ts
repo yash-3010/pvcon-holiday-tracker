@@ -7,17 +7,8 @@ export type JobOutcome = { status: "succeeded" | "skipped" | "failed"; detail: s
 
 const STALE_MS = 60 * 60 * 1000;
 
-/**
- * Runs `fn` at most once successfully per (job, runKey). Failed runs are retried on the next call;
- * runs stuck in `running` for over an hour are reclaimed.
- */
-export function runJob(
-  db: DbLike,
-  job: string,
-  runKey: string,
-  fn: (tx: DbLike) => string | void,
-  now: Date = new Date(),
-): JobOutcome {
+/** Claims (job, runKey) for a run, or says why it can't run now. */
+function claimRun(db: DbLike, job: string, runKey: string, now: Date): { id: number } | JobOutcome {
   const existing = db
     .select()
     .from(jobRuns)
@@ -29,37 +20,67 @@ export function runJob(
   if (existing?.status === "running" && now.getTime() - Date.parse(existing.startedAt) < STALE_MS) {
     return { status: "skipped", detail: "Already running" };
   }
-
   const startedAt = now.toISOString();
-  let id: number;
   if (existing) {
     db.update(jobRuns)
       .set({ status: "running", startedAt, finishedAt: null, detail: null })
       .where(eq(jobRuns.id, existing.id))
       .run();
-    id = existing.id;
-  } else {
-    id = db
-      .insert(jobRuns)
-      .values({ job, runKey, status: "running", startedAt })
-      .returning({ id: jobRuns.id })
-      .get().id;
+    return { id: existing.id };
   }
+  return { id: db.insert(jobRuns).values({ job, runKey, status: "running", startedAt }).returning({ id: jobRuns.id }).get().id };
+}
 
+function finishRun(db: DbLike, id: number, outcome: JobOutcome & { status: "succeeded" | "failed" }): JobOutcome {
+  db.update(jobRuns).set({ status: outcome.status, finishedAt: new Date().toISOString(), detail: outcome.detail }).where(eq(jobRuns.id, id)).run();
+  return outcome;
+}
+
+function failed(db: DbLike, id: number, err: unknown, job: string, runKey: string): JobOutcome {
+  logger.error({ err, job, runKey }, "job failed");
+  return finishRun(db, id, { status: "failed", detail: err instanceof Error ? err.message : String(err) });
+}
+
+/**
+ * Runs `fn` at most once successfully per (job, runKey). Failed runs are retried on the next call;
+ * runs stuck in `running` for over an hour are reclaimed.
+ */
+export function runJob(
+  db: DbLike,
+  job: string,
+  runKey: string,
+  fn: (tx: DbLike) => string | void,
+  now: Date = new Date(),
+): JobOutcome {
+  const claim = claimRun(db, job, runKey, now);
+  if (!("id" in claim)) return claim;
   try {
     const detail = db.transaction((tx) => fn(tx)) || "ok";
-    db.update(jobRuns)
-      .set({ status: "succeeded", finishedAt: new Date().toISOString(), detail })
-      .where(eq(jobRuns.id, id))
-      .run();
-    return { status: "succeeded", detail };
+    return finishRun(db, claim.id, { status: "succeeded", detail });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    db.update(jobRuns)
-      .set({ status: "failed", finishedAt: new Date().toISOString(), detail })
-      .where(eq(jobRuns.id, id))
-      .run();
-    logger.error({ err, job, runKey }, "job failed");
-    return { status: "failed", detail };
+    return failed(db, claim.id, err, job, runKey);
+  }
+}
+
+/**
+ * Like `runJob`, then awaits `deliver` (email and other async work) outside the transaction. The run succeeds only
+ * when both do; a failed delivery is retried with the next call for the same key.
+ */
+export async function runJobAsync(
+  db: DbLike,
+  job: string,
+  runKey: string,
+  fn: (tx: DbLike) => string | void,
+  deliver: () => Promise<string>,
+  now: Date = new Date(),
+): Promise<JobOutcome> {
+  const claim = claimRun(db, job, runKey, now);
+  if (!("id" in claim)) return claim;
+  try {
+    const detail = db.transaction((tx) => fn(tx)) || "ok";
+    const delivered = await deliver();
+    return finishRun(db, claim.id, { status: "succeeded", detail: `${detail}; ${delivered}` });
+  } catch (err) {
+    return failed(db, claim.id, err, job, runKey);
   }
 }
