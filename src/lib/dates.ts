@@ -91,6 +91,16 @@ export function addMonths(period: Period, months: number): Period {
   return fromUTCDate(new Date(Date.UTC(y, m - 1 + months, 1))).slice(0, 7);
 }
 
+/** The fiscal year holding `period`, starting in `startMonth` (1–12): its first and last periods and "FY 2026–27". */
+export function fiscalYearOf(period: Period, startMonth: number): { start: Period; end: Period; label: string } {
+  const [y, m] = parsePeriod(period);
+  const startYear = m >= startMonth ? y : y - 1;
+  const start = `${startYear}-${String(startMonth).padStart(2, "0")}`;
+  const end = addMonths(start, 11);
+  const label = startMonth === 1 ? `FY ${startYear}` : `FY ${startYear}–${String((startYear + 1) % 100).padStart(2, "0")}`;
+  return { start, end, label };
+}
+
 /** Calendar date of `instant` as seen in `timeZone` (IANA name). */
 export function dateInTimeZone(instant: Date, timeZone: string): ISODate {
   const parts = new Intl.DateTimeFormat("en-CA", {

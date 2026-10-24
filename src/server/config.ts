@@ -15,4 +15,9 @@ export const config = {
   get cronSecret() {
     return process.env.CRON_SECRET ?? "";
   },
+  /** Optional PKCS#12 certificate for signing released payslips. */
+  get payslipSigning(): { p12Path: string; passphrase: string } | null {
+    const p12Path = process.env.PAYSLIP_SIGN_P12_PATH?.trim();
+    return p12Path ? { p12Path, passphrase: process.env.PAYSLIP_SIGN_P12_PASSWORD ?? "" } : null;
+  },
 };

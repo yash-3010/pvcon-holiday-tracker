@@ -2,8 +2,9 @@ import { eq } from "drizzle-orm";
 import { can } from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/types";
 import type { DbLike } from "@/server/db/client";
-import { employeeDocuments, expenseClaims, leaveRequests, type FileRow } from "@/server/db/schema";
+import { employeeDocuments, expenseClaims, leaveRequests, payslips, type FileRow } from "@/server/db/schema";
 import { canDecideLeave } from "@/server/modules/leave/requests";
+import { canViewPayslip } from "@/server/modules/payroll/access";
 import { canDecideClaim } from "@/server/modules/payroll/claims";
 import { getSetting } from "@/server/modules/settings/service";
 
@@ -51,6 +52,15 @@ const RESOLVERS: FileAccessResolver[] = [
       !!claim &&
       (user.employeeId === claim.employeeId || can(user, "claim.view.all") || canDecideClaim(db, user, claim.employeeId))
     );
+  },
+  // A frozen payslip PDF is for its employee once released, and for payroll and salary viewers.
+  (db, user, file) => {
+    const payslip = db
+      .select({ employeeId: payslips.employeeId, releasedAt: payslips.releasedAt })
+      .from(payslips)
+      .where(eq(payslips.pdfFileId, file.id))
+      .get();
+    return !!payslip && canViewPayslip(user, payslip);
   },
 ];
 

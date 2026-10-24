@@ -2,14 +2,14 @@ import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { DB } from "@/server/db/client";
 import {
-  attendanceDays, compOffClaims, employeeSalaries, expenseClaims, loanRepayments, loans, notifications, payslips, payrollRuns,
+  attendanceDays, compOffClaims, employeeSalaries, expenseClaims, loanRepayments, loans, payslips, payrollRuns,
   salaryStructures, type EmployeeRow,
 } from "@/server/db/schema";
 import { setOverride } from "@/server/modules/attendance/overrides";
 import { seedDefaultShift } from "@/server/modules/attendance/shifts";
 import { seedDefaultLeaveTypes } from "@/server/modules/leave/types";
 import {
-  approveRun, cancelRun, computeRun, createRun, markPaid, releasePayslip, releaseRun, requireRun, revertRun, setPayslipStatus,
+  approveRun, cancelRun, computeRun, createRun, markPaid, requireRun, revertRun, setPayslipStatus,
 } from "@/server/modules/payroll/runs";
 import { reviseSalary } from "@/server/modules/payroll/salaries";
 import { seedPayrollDefaults } from "@/server/modules/payroll/structures";
@@ -136,31 +136,17 @@ describe("revert", () => {
     const dec = createRun(db, makerId, { period: "2026-12", type: "regular", notes: null }, after("2026-12"));
     expectDomainError(() => revertRun(db, nov.id), "LATER_RUN");
     cancelRun(db, dec.id);
-    releaseRun(db, nov.id, NOV);
+    db.update(payrollRuns).set({ status: "released" }).where(eq(payrollRuns.id, nov.id)).run();
     expectDomainError(() => revertRun(db, nov.id), "RUN_LOCKED");
     expectDomainError(() => computeRun(db, makerId, nov.id, NOV), "RUN_LOCKED");
   });
 });
 
-describe("release, payment and cancellation", () => {
-  it("releases included payslips, then held ones one by one, and records payment", () => {
-    const run = computed("2026-11");
-    setPayslipStatus(db, run.id, kiran.id, "hold");
-    approveRun(db, checkerId, run.id, NOV);
+describe("payment and cancellation", () => {
+  it("records the payment of a released run only", () => {
+    const run = approved("2026-11");
     expectDomainError(() => markPaid(db, run.id, { paidOn: "2026-12-01", reference: "NEFT" }, NOV), "NOT_RELEASED");
-
-    const released = releaseRun(db, run.id, NOV);
-    expect(released.run).toMatchObject({ status: "released", releasedAt: NOV.now.toISOString() });
-    expect(released.payslipIds).toEqual([slipOf(run.id, asha.id).id]);
-    expect(slipOf(run.id, asha.id).releasedAt).toBe(NOV.now.toISOString());
-    expect(slipOf(run.id, kiran.id).releasedAt).toBeNull();
-    expect(db.select().from(notifications).where(eq(notifications.userId, ashaUserId)).all().map((n) => [n.type, n.title, n.link])).toEqual([
-      ["payslip.released", "Your payslip for November 2026 is ready", `/me/payslips/${slipOf(run.id, asha.id).id}`],
-    ]);
-
-    expectDomainError(() => releasePayslip(db, slipOf(run.id, asha.id).id, NOV), "NOT_HELD");
-    expect(releasePayslip(db, slipOf(run.id, kiran.id).id, NOV)).toMatchObject({ status: "ok", releasedAt: NOV.now.toISOString() });
-
+    db.update(payrollRuns).set({ status: "released" }).where(eq(payrollRuns.id, run.id)).run();
     expect(markPaid(db, run.id, { paidOn: "2026-12-01", reference: "NEFT 123" }, NOV)).toMatchObject({
       status: "paid", paidOn: "2026-12-01", paymentRef: "NEFT 123", paidAt: NOV.now.toISOString(),
     });

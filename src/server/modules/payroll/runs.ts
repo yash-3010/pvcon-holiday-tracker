@@ -11,7 +11,6 @@ import {
 import { DomainError } from "@/server/errors";
 import { fillMissingAttendance } from "@/server/modules/attendance/compute";
 import { bankView } from "@/server/modules/employees/sensitive";
-import { notify } from "@/server/modules/notifications/service";
 import { settleArrears, unsettleArrears } from "./arrears";
 import { assertEditable, employedInPeriod, loanOutstanding, refreshSystemInputs, requireRun } from "./inputs";
 import { periodVariables } from "./period";
@@ -323,38 +322,6 @@ export function revertRun(db: DbLike, runId: number): PayrollRunRow {
     .where(eq(payrollRuns.id, run.id))
     .returning()
     .get()!;
-}
-
-function notifyReleased(db: DbLike, payslip: PayslipRow, period: string): void {
-  const userId = db.select({ userId: employees.userId }).from(employees).where(eq(employees.id, payslip.employeeId)).get()?.userId;
-  if (!userId) return;
-  notify(db, { userId, type: "payslip.released", title: `Your payslip for ${formatPeriod(period)} is ready`, link: `/me/payslips/${payslip.id}` });
-}
-
-/** Releases an approved run (spec §5.6 run step 6): its included payslips become visible to employees. Held ones wait. */
-export function releaseRun(db: DbLike, runId: number, { now }: { now: Date }): { run: PayrollRunRow; payslipIds: number[] } {
-  const run = requireRun(db, runId);
-  if (run.status !== "approved") throw new DomainError("NOT_APPROVED", "Approve the run before releasing it.");
-  const at = now.toISOString();
-  const released = runPayslips(db, run.id).filter((p) => p.status === "ok");
-  for (const payslip of released) {
-    db.update(payslips).set({ releasedAt: at }).where(eq(payslips.id, payslip.id)).run();
-    notifyReleased(db, payslip, run.period);
-  }
-  const updated = db.update(payrollRuns).set({ status: "released", releasedAt: at }).where(eq(payrollRuns.id, run.id)).returning().get()!;
-  return { run: updated, payslipIds: released.map((p) => p.id) };
-}
-
-/** Releases a payslip held when its run was released. */
-export function releasePayslip(db: DbLike, payslipId: number, { now }: { now: Date }): PayslipRow {
-  const payslip = db.select().from(payslips).where(eq(payslips.id, payslipId)).get();
-  if (!payslip) throw new DomainError("NOT_FOUND", "Payslip not found.");
-  const run = requireRun(db, payslip.runId);
-  if (payslip.status !== "hold" || payslip.releasedAt) throw new DomainError("NOT_HELD", "Only a held payslip can be released on its own.");
-  if (run.status !== "released" && run.status !== "paid") throw new DomainError("NOT_RELEASED", "Release the run first.");
-  const updated = db.update(payslips).set({ status: "ok", releasedAt: now.toISOString() }).where(eq(payslips.id, payslip.id)).returning().get()!;
-  notifyReleased(db, updated, run.period);
-  return updated;
 }
 
 /** Records the bank payment of a released run (spec §5.6 run step 7). */

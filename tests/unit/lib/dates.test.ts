@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addDays, addMonths, dateInTimeZone, dayOfWeek, daysInMonth, diffDays, eachDay, formatDate, formatDateTime,
+  addDays, addMonths, dateInTimeZone, fiscalYearOf, dayOfWeek, daysInMonth, diffDays, eachDay, formatDate, formatDateTime,
   formatHm, formatMinutes, formatPeriod, isISODate, isPeriod, minutesInZone, monthRange, parseHm, periodOf, startOfWeek,
   toUTCDate, zonedInstant,
 } from "@/lib/dates";
@@ -45,6 +45,9 @@ describe("dates", () => {
     expect(monthRange("2026-09")).toEqual({ start: "2026-09-01", end: "2026-09-30" });
     expect(addMonths("2026-11", 3)).toBe("2027-02");
     expect(addMonths("2026-01", -1)).toBe("2025-12");
+    expect(fiscalYearOf("2026-11", 4)).toEqual({ start: "2026-04", end: "2027-03", label: "FY 2026–27" });
+    expect(fiscalYearOf("2027-02", 4)).toEqual({ start: "2026-04", end: "2027-03", label: "FY 2026–27" });
+    expect(fiscalYearOf("2026-11", 1)).toEqual({ start: "2026-01", end: "2026-12", label: "FY 2026" });
   });
 
   it("converts instants to calendar dates in a timezone", () => {
