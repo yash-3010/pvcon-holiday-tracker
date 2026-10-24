@@ -5,7 +5,7 @@ import type { Variable } from "@/lib/payroll/constants";
 import { summarizeDays, type PayrollDay } from "@/lib/payroll/days";
 import type { DbLike } from "@/server/db/client";
 import { attendanceDays, compOffClaims, employees, leaveRequests, leaveTypes, type EmployeeRow } from "@/server/db/schema";
-import { recomputeAttendance } from "@/server/modules/attendance/compute";
+import { fillMissingAttendance, recomputeAttendance } from "@/server/modules/attendance/compute";
 import { shiftForEmployee } from "@/server/modules/attendance/shifts";
 import { holidaysForEmployee } from "@/server/modules/holidays/service";
 import { balancesFor, leaveYearStartMonth } from "@/server/modules/leave/ledger";
@@ -14,20 +14,25 @@ import { getSetting } from "@/server/modules/settings/service";
 export interface PeriodOptions {
   today: ISODate;
   now: Date;
-  /** Recompute the period's attendance first (skipped for arrears and previews). Locked days are never touched. */
+  /** Bring the period's attendance up to date first (skipped for arrears and previews). Locked days are never touched. */
   recompute?: boolean;
 }
 
 /**
  * Each day of the pay period as payroll sees it (spec §5.6): stored attendance up to today, and after today a
- * projection where leave, holidays and weekly offs apply and other working days count as worked.
+ * projection where leave, holidays and weekly offs apply and other working days count as worked. Bringing attendance up
+ * to date computes the days without a row and today's provisional one; days already computed keep the shift rules they
+ * were computed with, as everywhere else in attendance.
  */
 export function periodDays(db: DbLike, employeeId: number, period: string, { today, now, recompute = true }: PeriodOptions): PayrollDay[] {
   const { start, end } = monthRange(period);
   const employee = db.select().from(employees).where(eq(employees.id, employeeId)).get();
   if (!employee) return [];
   const upTo = end < today ? end : today;
-  if (recompute && start <= upTo) recomputeAttendance(db, employeeId, start, upTo, { now });
+  if (recompute && start <= upTo) {
+    fillMissingAttendance(db, start, upTo, { now, employeeIds: [employeeId] });
+    if (upTo === today) recomputeAttendance(db, employeeId, today, today, { now });
+  }
 
   const shift = shiftForEmployee(db, employeeId);
   const punchMode = shift.attendanceMode === "punch";

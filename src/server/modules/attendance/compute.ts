@@ -146,15 +146,21 @@ export function recomputeToday(db: DbLike, employeeIds: number[], opts: Recomput
 /**
  * Computes the days in [from, to] that have no row yet: a nightly run that never happened, someone added with an
  * earlier joining date, or history from before attendance existed. Existing rows, locked or not, are left alone.
+ * `employeeIds` limits it to those employees.
  */
-export function fillMissingAttendance(db: DbLike, from: ISODate, to: ISODate, opts: RecomputeOptions = {}): number {
+export function fillMissingAttendance(
+  db: DbLike,
+  from: ISODate,
+  to: ISODate,
+  opts: RecomputeOptions & { employeeIds?: readonly number[] } = {},
+): number {
   const today = dateInTimeZone(opts.now ?? new Date(), getSetting(db, "locale").timezone);
   const end = to < today ? to : today;
   if (from > end) return 0;
   const people = db
     .select({ id: employees.id, joined: employees.dateOfJoining, last: employees.lastWorkingDate })
     .from(employees)
-    .where(employedDuring(from, end))
+    .where(and(employedDuring(from, end), opts.employeeIds ? inArray(employees.id, [...opts.employeeIds]) : undefined))
     .all();
   const existing = new Set(
     db

@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { DB } from "@/server/db/client";
-import { compOffClaims, leaveRequests, leaveTypes, type EmployeeRow } from "@/server/db/schema";
+import { attendanceDays, compOffClaims, leaveRequests, leaveTypes, shifts, type EmployeeRow } from "@/server/db/schema";
 import { setOverride } from "@/server/modules/attendance/overrides";
 import { seedDefaultShift } from "@/server/modules/attendance/shifts";
 import { postLedger } from "@/server/modules/leave/ledger";
@@ -43,6 +43,15 @@ describe("period days", () => {
     expect(vars).toMatchObject({ TOTAL_DAYS: 30, WORKING_DAYS: 21, LOP_DAYS: 3, PAID_DAYS: 27, PRESENT_DAYS: 17 });
     patchSetting(db, "payroll", { prorationBasis: "working" }, null);
     expect(periodVariables(db, asha, "2026-11", AFTER)).toMatchObject({ TOTAL_DAYS: 21, LOP_DAYS: 3, PAID_DAYS: 18 });
+  });
+
+  it("keeps days already computed under earlier shift rules and computes only the missing ones", () => {
+    expect(periodVariables(db, asha, "2026-11", AFTER)).toMatchObject({ LOP_DAYS: 0 });
+    // Switching to punch mode later must not turn the month's earlier days into absences.
+    db.update(shifts).set({ attendanceMode: "punch" }).run();
+    db.delete(attendanceDays).where(and(eq(attendanceDays.employeeId, asha.id), eq(attendanceDays.date, "2026-11-30"))).run();
+    expect(periodVariables(db, asha, "2026-11", AFTER)).toMatchObject({ LOP_DAYS: 1 });
+    expect(periodDays(db, asha.id, "2026-11", AFTER).find((d) => d.date === "2026-11-30")).toMatchObject({ status: "absent" });
   });
 
   it("projects the rest of a month that hasn't ended as worked", () => {
