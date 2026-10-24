@@ -5,7 +5,8 @@ import { fullName } from "@/lib/hr";
 import type { LeaveHalf } from "@/lib/leave";
 import type { DB, DbLike } from "@/server/db/client";
 import { nowIso } from "@/server/db/columns";
-import { employees, holidaySelections, holidays, leaveRequests, leaveTypes, users } from "@/server/db/schema";
+import { employees, holidaySelections, holidays, jobRuns, leaveRequests, leaveTypes, users } from "@/server/db/schema";
+import { leaveYearEndJob } from "@/server/jobs/leave-year-end";
 import { fillMissingAttendance } from "@/server/modules/attendance/compute";
 import { seedDefaultShift } from "@/server/modules/attendance/shifts";
 import { seedDefaultChecklistTemplates } from "@/server/modules/employees/checklists";
@@ -191,6 +192,16 @@ function run(source: LegacySource, db: DbLike, now: Date): { report: MigrationRe
     }
   }
   report.years = [...years].sort((a, b) => a - b);
+  // The old app closed a year when it recorded the next year's carry-forward, which the ledger above already holds.
+  // Record those year-ends as done so the leave:year-end job doesn't carry the same days forward a second time.
+  for (const year of new Set(source.balances.map((b) => b.year - 1))) {
+    db.insert(jobRuns)
+      .values({
+        job: leaveYearEndJob.name, runKey: String(year), status: "succeeded", startedAt: now.toISOString(), finishedAt: now.toISOString(),
+        detail: "Closed by the Holiday Tracker; its carry-forward came over with the legacy migration.",
+      })
+      .run();
+  }
 
   // 7. Leaves: planned and taken leave become approved requests with their recorded days.
   const typeFor = { casual: CL, sick: SL, unpaid: LWP } as const;

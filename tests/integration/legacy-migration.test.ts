@@ -14,6 +14,7 @@ import { legacyBalance, readLegacy, type LegacySource } from "@/server/modules/l
 import { migrateLegacy } from "@/server/modules/legacy/migrate";
 import { runLegacyMigration } from "@/server/modules/legacy/run";
 import { verifyMigration } from "@/server/modules/legacy/verify";
+import { runJobByName } from "@/server/jobs/registry";
 import { balanceOf } from "@/server/modules/leave/ledger";
 import { getUserById, verifyCredentials } from "@/server/modules/users/service";
 import { createTestDb } from "../helpers/db";
@@ -179,6 +180,16 @@ describe("migrateLegacy", () => {
     expect(balanceOf(db, ravi, type("CL").id, 2025)).toBe(9);
     expect(balanceOf(db, ravi, type("SL").id, 2026)).toBe(3);
     expect(balanceOf(db, employeeByEmail("old@pvcon.in")!.id, type("CL").id, 2024)).toBe(11);
+  });
+
+  it("leaves the years the old app closed closed, so the year-end job doesn't carry them forward again", () => {
+    migrateLegacy(source, db, { now: new Date("2026-07-01T06:00:00Z") });
+    const asha = employeeByEmail("asha@pvcon.in")!;
+    const before = balanceOf(db, asha.id, type("CL").id, 2026);
+    expect(runJobByName(db, "leave:year-end", new Date("2026-07-02T06:00:00Z"))).toMatchObject({ status: "skipped" });
+    expect(balanceOf(db, asha.id, type("CL").id, 2026)).toBe(before);
+    // The year it hasn't closed yet closes as usual next January.
+    expect(runJobByName(db, "leave:year-end", new Date("2027-01-01T06:00:00Z"))).toMatchObject({ status: "succeeded" });
   });
 
   it("migrates leave requests with their days, halves and timestamps", () => {
