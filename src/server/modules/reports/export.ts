@@ -9,15 +9,18 @@ export function safeText(value: string | null): string {
   return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
 
-/** A cell as exported: money in rupees, minutes as hours, text formula-safe. */
-function cellValue(column: ReportColumn, value: string | number | null): string | number | null {
+/**
+ * A cell as exported: money in rupees, minutes as hours. CSV text is made formula-safe; XLSX string cells are never
+ * evaluated, so they keep the text as typed.
+ */
+function cellValue(column: ReportColumn, value: string | number | null, format: "csv" | "xlsx"): string | number | null {
   if (value === null || value === undefined) return null;
   if (typeof value === "number") {
     if (column.type === "money") return toMajor(value);
     if (column.type === "minutes") return Math.round((value / 60) * 100) / 100;
     return value;
   }
-  return safeText(value);
+  return format === "csv" ? safeText(value) : value;
 }
 
 const headerOf = (c: ReportColumn) => (c.type === "money" ? `${c.label} (₹)` : c.type === "minutes" ? `${c.label} (h)` : c.type === "percent" ? `${c.label} (%)` : c.label);
@@ -25,7 +28,7 @@ const headerOf = (c: ReportColumn) => (c.type === "money" ? `${c.label} (₹)` :
 export function reportCsv(result: ReportResult): string {
   return `﻿${Papa.unparse({
     fields: result.columns.map(headerOf),
-    data: result.rows.map((row) => result.columns.map((c) => cellValue(c, row[c.key] ?? null))),
+    data: result.rows.map((row) => result.columns.map((c) => cellValue(c, row[c.key] ?? null, "csv"))),
   })}`;
 }
 
@@ -34,7 +37,7 @@ export async function reportXlsx(title: string, result: ReportResult): Promise<B
   book.creator = "PVCON People";
   const sheet = book.addWorksheet(title.slice(0, 31).replace(/[\\/?*[\]:]/g, " "));
   sheet.addRow(result.columns.map(headerOf));
-  for (const row of result.rows) sheet.addRow(result.columns.map((c) => cellValue(c, row[c.key] ?? null)));
+  for (const row of result.rows) sheet.addRow(result.columns.map((c) => cellValue(c, row[c.key] ?? null, "xlsx")));
   result.columns.forEach((c, i) => {
     const column = sheet.getColumn(i + 1);
     column.width = Math.min(40, Math.max(10, headerOf(c).length + 2));

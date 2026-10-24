@@ -1,4 +1,5 @@
 import { and, inArray, lte } from "drizzle-orm";
+import { pushTo } from "@/lib/collections";
 import { addMonths, diffDays, formatPeriod, monthRange } from "@/lib/dates";
 import { EMPLOYEE_STATUS_LABELS, EMPLOYMENT_TYPE_LABELS, GENDER_LABELS } from "@/lib/hr";
 import { employees } from "@/server/db/schema";
@@ -19,7 +20,7 @@ export const hrReports: ReportDefinition[] = [
     run: (db, ctx, p) => {
       const people = reportEmployees(db, ctx, { departmentId: p.departmentId, from: p.date, to: p.date });
       const groups = new Map<string, typeof people>();
-      for (const e of people) groups.set(e.department ?? "No department", [...(groups.get(e.department ?? "No department") ?? []), e]);
+      for (const e of people) pushTo(groups, e.department ?? "No department", e);
       const rows = [...groups.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([department, list]) => ({

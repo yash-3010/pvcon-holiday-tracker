@@ -75,13 +75,16 @@ describe("payroll reports", () => {
     expect(result.note).toMatch(/^FY 2026–27/);
   });
 
-  it("give the bank advice of an approved run with full account numbers", () => {
+  it("give the bank advice of an approved run, with full account numbers in the (audited) export only", () => {
     expect(run(maker, "bank-advice").note).toMatch(/No approved/);
     approve();
-    expect(run(maker, "bank-advice", { run: String(runId) }).rows).toEqual([
+    expect(runReport(db, maker, "bank-advice", { run: String(runId) }, NOW, { forExport: true }).result.rows).toEqual([
       { code: "PV001", name: "Asha Test", bankName: "HDFC Bank", account: "50100012345678", ifsc: "HDFC0001234", amount: slip(asha).netPay },
       { code: "PV002", name: "Kiran Test", bankName: null, account: null, ifsc: null, amount: slip(kiran).netPay },
     ]);
+    const onScreen = run(maker, "bank-advice", { run: String(runId) });
+    expect(onScreen.rows[0]!.account).toMatch(/^X+5678$/);
+    expect(onScreen.note).toMatch(/masked/);
   });
 
   it("split the employer cost by department", () => {

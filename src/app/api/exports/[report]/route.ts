@@ -16,7 +16,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ report: str
   const format = url.searchParams.get("format") === "csv" ? "csv" : "xlsx";
   let run;
   try {
-    run = runReport(db, user, (await ctx.params).report, Object.fromEntries(url.searchParams));
+    run = runReport(db, user, (await ctx.params).report, Object.fromEntries(url.searchParams), new Date(), { forExport: true });
   } catch (err) {
     if (err instanceof DomainError) return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 404 });
     throw err;

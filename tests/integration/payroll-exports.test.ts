@@ -61,7 +61,7 @@ describe("bank advice", () => {
     ]);
   });
 
-  it("exports CSV and XLSX without spreadsheet formulas", async () => {
+  it("exports CSV with a formula guard and XLSX with text cells", async () => {
     const csv = bankAdviceCsv(bankAdvice(db, runId));
     expect(csv.split("\r\n")).toEqual([
       "Employee code,Name,Bank,Account number,IFSC,Amount",
@@ -70,7 +70,8 @@ describe("bank advice", () => {
     ]);
     const { rows } = await sheetRows(await bankAdviceXlsx(bankAdvice(db, runId), "November 2026"));
     expect(rows[1]).toEqual(["PV001", "Asha Rao", "HDFC Bank", "50100012345678", "HDFC0001234", 105000.5]);
-    expect(rows[2]![1]).toBe("'=HYPERLINK(\"x\") M");
+    // XLSX string cells are never evaluated: the name stays as typed. The CSV above carries the formula guard.
+    expect(rows[2]![1]).toBe("=HYPERLINK(\"x\") M");
     expect(rows.at(-1)).toEqual(["Total", undefined, undefined, undefined, undefined, 205000.5]);
   });
 });

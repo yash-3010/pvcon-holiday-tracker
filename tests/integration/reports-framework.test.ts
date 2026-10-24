@@ -64,12 +64,13 @@ describe("report exports", () => {
     ]);
   });
 
-  it("write XLSX with typed cells and the note", async () => {
+  it("write XLSX with typed cells, text as text, and the note", async () => {
     const book = new ExcelJS.Workbook();
     await book.xlsx.load((await reportXlsx("Demo: report/1", result)) as unknown as ExcelJS.Buffer);
     const sheet = book.worksheets[0]!;
     expect(sheet.name).toBe("Demo  report 1");
-    expect(sheet.getRow(2).values).toEqual([undefined, "'=cmd()", 123456.78, 1.5, 12.5]);
+    // String cells are never evaluated, so XLSX keeps text as typed (a phone like +91… stays as is).
+    expect(sheet.getRow(2).values).toEqual([undefined, "=cmd()", 123456.78, 1.5, 12.5]);
     expect(sheet.getRow(5).getCell(1).value).toBe("Money in rupees.");
   });
 });

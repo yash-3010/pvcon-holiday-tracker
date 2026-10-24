@@ -63,7 +63,8 @@ export async function bankAdviceXlsx(rows: readonly BankAdviceRow[], periodLabel
   const sheet = book.addWorksheet("Bank advice");
   sheet.columns = BANK_HEADERS.map((header, i) => ({ header, width: [14, 28, 22, 22, 14, 16][i] }));
   for (const r of rows) {
-    sheet.addRow([safeText(r.code), safeText(r.name), safeText(r.bankName), safeText(r.account), safeText(r.ifsc), toMajor(r.amount)]);
+    // XLSX string cells are never evaluated, so text stays as typed (only CSV needs the formula guard).
+    sheet.addRow([r.code, r.name, r.bankName, r.account, r.ifsc, toMajor(r.amount)]);
   }
   sheet.addRow(["Total", null, null, null, null, toMajor(rows.reduce((s, r) => s + r.amount, 0))]).font = { bold: true };
   sheet.getColumn(4).numFmt = "@";
@@ -109,7 +110,7 @@ export async function registerXlsx(db: DbLike, runId: number): Promise<Buffer> {
     const amounts = new Map<string, Minor>();
     for (const l of lines.filter((x) => x.payslipId === payslip.id)) amounts.set(columnOf(l), (amounts.get(columnOf(l)) ?? 0) + l.amount);
     sheet.addRow([
-      safeText(employee.employeeCode), safeText(employee.displayName), PAYSLIP_STATUS_LABELS[payslip.status], payslip.totalDays, payslip.paidDays,
+      employee.employeeCode, employee.displayName, PAYSLIP_STATUS_LABELS[payslip.status], payslip.totalDays, payslip.paidDays,
       payslip.lopDays, ...keys.map((k) => toMajor(amounts.get(k) ?? 0)), toMajor(payslip.grossEarnings), toMajor(payslip.totalDeductions),
       toMajor(payslip.employerContributions), toMajor(payslip.reimbursements), toMajor(payslip.netPay),
     ]);

@@ -56,6 +56,8 @@ export interface ReportContext {
   timeZone: string;
   /** Employees the viewer may see: null for everyone (org-wide permission), else their reporting tree. */
   scope: number[] | null;
+  /** For a download (audited by `/api/exports`) rather than the page. */
+  forExport: boolean;
 }
 
 export type ReportArea = "hr" | "attendance" | "leave" | "timesheets" | "payroll";

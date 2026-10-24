@@ -29,6 +29,7 @@ export function runReport(
   slug: string,
   raw: Record<string, string | undefined>,
   now: Date = new Date(),
+  { forExport = false }: { forExport?: boolean } = {},
 ): { report: ReportDefinition; params: ReportParams; result: ReportResult; ctx: ReportContext } {
   const report = findReport(slug);
   if (!report) throw new DomainError("NOT_FOUND", "Report not found.");
@@ -36,7 +37,7 @@ export function runReport(
   const timeZone = getSetting(db, "locale").timezone;
   const today = todayInTimeZone(timeZone, now);
   const scope = reportScope(db, user, report);
-  const ctx: ReportContext = { user, now, today, timeZone, scope };
+  const ctx: ReportContext = { user, now, today, timeZone, scope, forExport };
   const params = parseReportParams(db, raw, { today, scope });
   return { report, params, result: report.run(db, ctx, params), ctx };
 }

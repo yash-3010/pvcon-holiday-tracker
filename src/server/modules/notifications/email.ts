@@ -1,4 +1,5 @@
 import { and, asc, count, eq, gt, gte, inArray, lt, type SQL } from "drizzle-orm";
+import { pushTo } from "@/lib/collections";
 import type { DbLike } from "@/server/db/client";
 import { notifications, users } from "@/server/db/schema";
 import { isEmailConfigured, renderEmail, sendEmail } from "@/server/lib/email";
@@ -101,7 +102,7 @@ export async function deliverDigests(db: DbLike, { now, appUrl }: DeliveryOption
     .returning()
     .all();
   const byUser = new Map<number, typeof claimed>();
-  for (const n of claimed.sort((a, b) => a.id - b.id)) byUser.set(n.userId, [...(byUser.get(n.userId) ?? []), n]);
+  for (const n of claimed.sort((a, b) => a.id - b.id)) pushTo(byUser, n.userId, n);
   const accounts = new Map(
     byUser.size
       ? db.select({ id: users.id, email: users.email, status: users.status }).from(users).where(inArray(users.id, [...byUser.keys()])).all().map((u) => [u.id, u])

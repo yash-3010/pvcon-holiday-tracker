@@ -1,5 +1,6 @@
 import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { ATTENDANCE_CODES, ATTENDANCE_STATUS_LABELS, WORK_MODE_LABELS } from "@/lib/attendance";
+import { pushTo } from "@/lib/collections";
 import { eachDay, formatHm, monthRange, type ISODate } from "@/lib/dates";
 import type { DbLike } from "@/server/db/client";
 import { attendanceDays, attendancePunches, compOffClaims, type AttendanceDayRow } from "@/server/db/schema";
@@ -21,7 +22,7 @@ function daysOf(db: DbLike, ctx: ReportContext, p: ReportParams, from: ISODate, 
     .orderBy(asc(attendanceDays.date))
     .all()
     .filter((r) => !isProvisional(r.date, ctx.today, r.status));
-  for (const r of rows) days.set(r.employeeId, [...(days.get(r.employeeId) ?? []), r]);
+  for (const r of rows) pushTo(days, r.employeeId, r);
   return { people, days };
 }
 

@@ -1,10 +1,12 @@
 import { and, asc, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { pushTo } from "@/lib/collections";
 import { addMonths, formatPeriod, monthRange, type Period } from "@/lib/dates";
 import { CLAIM_CATEGORY_LABELS, CLAIM_STATUS_LABELS, COMPONENT_KIND_LABELS, PAYSLIP_STATUS_LABELS, RUN_TYPE_LABELS, type RunStatus } from "@/lib/payroll/constants";
 import type { DbLike } from "@/server/db/client";
 import {
   employeeSalaries, expenseClaims, payrollRuns, payslipLines, payslips, salaryComponents, salaryStructures, users, type PayrollRunRow, type PayslipRow,
 } from "@/server/db/schema";
+import { mask } from "@/server/lib/crypto";
 import { bankAdvice } from "@/server/modules/payroll/exports";
 import { listLoans, myYearStatement } from "@/server/modules/payroll/queries";
 import { getSetting } from "@/server/modules/settings/service";
@@ -125,19 +127,20 @@ export const payrollReports: ReportDefinition[] = [
     orgWide: "payroll.run",
     slug: "bank-advice",
     title: "Bank advice",
-    description: "The bank transfer list of a run, with full account numbers.",
+    description: "The bank transfer list of a run; the export carries the full account numbers.",
     filters: ["run"],
-    run: (db, _ctx, p) => {
+    run: (db, ctx, p) => {
       const run = pickRun(db, p.runId, POSTED);
       if (!run) return { columns: [], rows: [], note: "No approved payroll run yet." };
-      const rows = bankAdvice(db, run.id);
+      // Full account numbers only leave in the audited export.
+      const rows = bankAdvice(db, run.id).map((r) => (ctx.forExport || !r.account ? r : { ...r, account: mask(r.account) }));
       return {
         columns: [
           { key: "code", label: "Code", type: "text" }, { key: "name", label: "Name", type: "text" }, { key: "bankName", label: "Bank", type: "text" },
           { key: "account", label: "Account number", type: "text" }, { key: "ifsc", label: "IFSC", type: "text" }, { key: "amount", label: "Amount", type: "money" },
         ],
         rows: rows.map((r) => ({ ...r })),
-        note: `${runLabel(run)}: ${rows.length} transfer(s). Held and excluded payslips aren't paid.`,
+        note: `${runLabel(run)}: ${rows.length} transfer(s). Held and excluded payslips aren't paid.${ctx.forExport ? "" : " Account numbers are masked here; the Excel and CSV downloads carry them in full and are audited."}`,
       };
     },
   },
@@ -152,7 +155,7 @@ export const payrollReports: ReportDefinition[] = [
       const groups = new Map<string, PayslipRow[]>();
       for (const { payslip } of postedPayslips(db, p.period, p.period)) {
         const department = people.get(payslip.employeeId)!;
-        groups.set(department, [...(groups.get(department) ?? []), payslip]);
+        pushTo(groups, department, payslip);
       }
       const rows = [...groups.entries()]
         .sort(([a], [b]) => a.localeCompare(b))

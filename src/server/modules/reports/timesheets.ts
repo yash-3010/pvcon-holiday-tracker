@@ -1,4 +1,5 @@
 import { and, asc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
+import { pushTo } from "@/lib/collections";
 import { addDays, type ISODate } from "@/lib/dates";
 import { PROJECT_STATUS_LABELS, TIMESHEET_STATUS_LABELS, utilization, weekRangeLabel } from "@/lib/timesheets";
 import type { DbLike } from "@/server/db/client";
@@ -43,7 +44,7 @@ const totals = (list: Entry[]) => {
 };
 function groupBy<K>(list: Entry[], key: (e: Entry) => K): Map<K, Entry[]> {
   const groups = new Map<K, Entry[]>();
-  for (const e of list) groups.set(key(e), [...(groups.get(key(e)) ?? []), e]);
+  for (const e of list) pushTo(groups, key(e), e);
   return groups;
 }
 

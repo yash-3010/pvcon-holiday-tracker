@@ -16,8 +16,10 @@ export function formatCell(column: ReportColumn, value: string | number | null):
       return formatMoney(value);
     case "percent":
       return `${value}%`;
-    case "minutes":
-      return `${Math.floor(value / 60)}:${String(Math.round(value % 60)).padStart(2, "0")}`;
+    case "minutes": {
+      const abs = Math.round(Math.abs(value));
+      return `${value < 0 ? "-" : ""}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, "0")}`;
+    }
     case "days":
       return formatDays(value);
     default:
