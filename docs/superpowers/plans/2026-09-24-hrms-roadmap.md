@@ -293,6 +293,22 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
 80. **Photos** (refinement 18) are readable by anyone with `directory.view` through `/api/files`, like the directory
     that shows them. Every change is audited as `employee.photo`. A new photo is a new file, so photos are served
     `private, max-age=86400, immutable`; every other file stays `no-store`.
+81. **Security upgrades wait out a two-week soak**, so the October 2026 advisories are fixed in two steps.
+    - In now: Next.js 16.4.0, nodemailer 10.0.16, and vite, vitest, tsx and the transitive fixes. Each is the newest
+      release published before 2026-10-10.
+    - Pending, with the date each is old enough:
+      - zod 4.6.6 (memory exhaustion on oversized constrained collections): 2026-10-25;
+      - Next.js 16.4.1 (SVG image optimization and `use cache` RCEs, a Server Actions DoS): 2026-10-28,
+        or 16.4.3 on 2026-11-06;
+      - nodemailer 10.1.4 (addressparser): 2026-11-01, or 10.2.1 on 2026-11-05.
+    - nodemailer 10 is outside Auth.js's optional peer range (`^7 || ^8`). An `overrides` entry accepts it, since only
+      the Credentials provider is used.
+    - `agentRules: false` keeps `next dev` from writing an `AGENTS.md`. `CLAUDE.md` stays the agent guide.
+    - Accepted advisories:
+      - node-forge (refinement 67);
+      - exceljs's uuid 8: the bug is in v3/v5/v6 with a caller's buffer, and exceljs only calls `v4()`;
+      - drizzle-kit's esbuild 0.18: the bug is in esbuild's dev server, and drizzle-kit's loader only calls
+        `transformSync`.
 
 ## Cross-phase integration map
 
