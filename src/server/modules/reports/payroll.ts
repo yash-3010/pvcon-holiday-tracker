@@ -182,6 +182,7 @@ export const payrollReports: ReportDefinition[] = [
     title: "Year-to-date statement",
     description: "One employee's released pay per component and month of a financial year.",
     filters: ["employee", "fiscalYear"],
+    required: ["employee"],
     run: (db, _ctx, p) => {
       if (p.employeeId === null) return { columns: [], rows: [], note: "Choose an employee." };
       const statement = myYearStatement(db, p.employeeId, p.fiscalYear.start, getSetting(db, "locale").fiscalYearStartMonth);

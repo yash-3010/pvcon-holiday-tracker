@@ -51,9 +51,9 @@ export default async function MyPayslipsPage({ searchParams }: { searchParams: P
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Month</TableHead>
-                    <TableHead className="text-right">Gross</TableHead>
+                    <TableHead className="hidden text-right sm:table-cell">Gross</TableHead>
                     <TableHead className="text-right">Net pay</TableHead>
-                    <TableHead className="w-56" />
+                    <TableHead className="sm:w-56" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -65,11 +65,12 @@ export default async function MyPayslipsPage({ searchParams }: { searchParams: P
                         </Link>
                         {p.runType === "off_cycle" && <span className="ml-2 text-xs text-muted-foreground">Off-cycle</span>}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{formatMoney(p.grossEarnings)}</TableCell>
+                      <TableCell className="hidden text-right tabular-nums sm:table-cell">{formatMoney(p.grossEarnings)}</TableCell>
                       <TableCell className="text-right font-medium tabular-nums">{formatMoney(p.netPay)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" asChild>
+                          {/* The month links to the payslip too, so phones show only the PDF button. */}
+                          <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
                             <Link href={`/me/payslips/${p.id}`}>View</Link>
                           </Button>
                           <Button variant="outline" size="sm" asChild>

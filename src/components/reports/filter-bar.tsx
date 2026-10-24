@@ -7,7 +7,17 @@ import type { FilterOptions } from "@/server/modules/reports/options";
 import type { FilterKind, ReportParams } from "@/server/modules/reports/types";
 
 /** A GET form, so a report's URL holds its filters and can be bookmarked or shared. */
-export function FilterBar({ filters, params, options }: { filters: readonly FilterKind[]; params: ReportParams; options: FilterOptions }) {
+export function FilterBar({
+  filters,
+  required = [],
+  params,
+  options,
+}: {
+  filters: readonly FilterKind[];
+  required?: readonly FilterKind[];
+  params: ReportParams;
+  options: FilterOptions;
+}) {
   if (!filters.length) return null;
   const select = (name: string, label: string, value: number | null, choices: { id: number; label: string }[], any = "All") => (
     <Field key={name} label={label} htmlFor={`f-${name}`}>
@@ -77,11 +87,11 @@ export function FilterBar({ filters, params, options }: { filters: readonly Filt
           case "department":
             return select("department", "Department", params.departmentId, options.departments);
           case "employee":
-            return select("employee", "Employee", params.employeeId, options.employees, "Choose…");
+            return select("employee", "Employee", params.employeeId, options.employees, required.includes("employee") ? "Choose…" : "All");
           case "project":
             return select("project", "Project", params.projectId, options.projects);
           case "run":
-            return select("run", "Payroll run", params.runId, options.runs, "Choose…");
+            return select("run", "Payroll run", params.runId, options.runs, "Latest");
         }
       })}
       <Button type="submit">Run</Button>

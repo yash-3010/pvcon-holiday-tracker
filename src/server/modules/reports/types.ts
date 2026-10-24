@@ -70,6 +70,8 @@ export interface ReportDefinition {
   /** Holders see everyone; others see their reporting tree. */
   orgWide: Permission;
   filters: readonly FilterKind[];
+  /** Select filters the report can't run without; the others offer "All" (or the latest run). */
+  required?: readonly FilterKind[];
   run: (db: DbLike, ctx: ReportContext, params: ReportParams) => ReportResult;
 }
 

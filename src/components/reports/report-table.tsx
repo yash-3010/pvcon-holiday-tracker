@@ -2,6 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/dates";
 import { formatDays } from "@/lib/leave";
 import { formatMoney } from "@/lib/money";
@@ -27,7 +28,9 @@ export function formatCell(column: ReportColumn, value: string | number | null):
 const NUMERIC = new Set(["number", "money", "percent", "minutes", "days"]);
 
 /** A report's rows, sortable and searchable. */
-export function ReportTable({ columns, rows }: { columns: ReportColumn[]; rows: ReportRow[] }) {
+export function ReportTable({ columns, rows, emptyHint }: { columns: ReportColumn[]; rows: ReportRow[]; emptyHint?: string }) {
+  // A wide report's empty row would centre its message off screen on a phone.
+  if (!rows.length) return <EmptyState title="Nothing for these filters" description={emptyHint ?? "Try another period, department or person."} />;
   const defs: ColumnDef<ReportRow>[] = columns.map((c) => ({
     id: c.key,
     header: c.label,
@@ -37,5 +40,5 @@ export function ReportTable({ columns, rows }: { columns: ReportColumn[]; rows: 
       <span className={NUMERIC.has(c.type) ? "block text-right tabular-nums" : undefined}>{formatCell(c, row.original[c.key] ?? null)}</span>
     ),
   }));
-  return <DataTable columns={defs} data={rows} pageSize={50} searchPlaceholder="Search rows…" emptyMessage="Nothing for these filters." />;
+  return <DataTable columns={defs} data={rows} pageSize={50} searchPlaceholder="Search rows…" />;
 }

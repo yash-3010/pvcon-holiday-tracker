@@ -66,7 +66,7 @@ export default async function ReportPage({
           </Link>
           {ctx.scope !== null && <span className="text-muted-foreground"> · Showing the people who report to you</span>}
         </p>
-        <FilterBar filters={report.filters} params={values} options={filterOptions(db, report.filters, ctx.scope)} />
+        <FilterBar filters={report.filters} required={report.required} params={values} options={filterOptions(db, report.filters, ctx.scope)} />
         {result.chart && result.rows.length > 0 && (
           <Card>
             <CardContent className="p-4">
@@ -74,8 +74,8 @@ export default async function ReportPage({
             </CardContent>
           </Card>
         )}
-        <ReportTable columns={result.columns} rows={result.rows} />
-        {result.note && <p className="text-xs text-muted-foreground">{result.note}</p>}
+        <ReportTable columns={result.columns} rows={result.rows} emptyHint={result.note} />
+        {result.note && result.rows.length > 0 && <p className="text-xs text-muted-foreground">{result.note}</p>}
       </div>
     </>
   );
