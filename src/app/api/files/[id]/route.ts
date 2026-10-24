@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/server/auth/session";
 import { config } from "@/server/config";
 import { db } from "@/server/db";
+import { isEmployeePhoto } from "@/server/modules/employees/photo";
 import { canAccessFile } from "@/server/modules/files/access";
 import { getFile, resolveStoredPath } from "@/server/modules/files/service";
 
@@ -23,7 +24,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       "Content-Type": file.mime,
       "Content-Length": String(file.size),
       "Content-Disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(file.originalName)}`,
-      "Cache-Control": "private, no-store",
+      // Photos appear on most pages and a new photo is a new file, so browsers may keep them; other files stay uncached.
+      "Cache-Control": isEmployeePhoto(db, file.id) ? "private, max-age=86400, immutable" : "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },
   });

@@ -180,6 +180,11 @@ export interface DirectoryEntry {
   photoFileId: number | null;
 }
 
+/** The employee's photo for the account menu, or null. */
+export function employeePhotoFileId(db: DbLike, employeeId: number): number | null {
+  return db.select({ id: employees.photoFileId }).from(employees).where(eq(employees.id, employeeId)).get()?.id ?? null;
+}
+
 export function listDirectory(db: DbLike): DirectoryEntry[] {
   const manager = alias(employees, "manager");
   return db

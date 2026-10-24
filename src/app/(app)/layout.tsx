@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { AppShell } from "@/components/shell/app-shell";
 import { inlineFileUrl } from "@/lib/files";
 import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
-import { employees } from "@/server/db/schema";
+import { employeePhotoFileId } from "@/server/modules/employees/queries";
 import { listNotifications, unreadCount } from "@/server/modules/notifications/service";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -13,8 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const recent = listNotifications(db, user.id, { limit: 8 }).map(({ id, title, body, link, readAt }) => ({
     id, title, body, link, readAt,
   }));
-  const photoFileId =
-    user.employeeId === null ? null : (db.select({ id: employees.photoFileId }).from(employees).where(eq(employees.id, user.employeeId)).get()?.id ?? null);
+  const photoFileId = user.employeeId === null ? null : employeePhotoFileId(db, user.employeeId);
   return (
     <AppShell
       user={{

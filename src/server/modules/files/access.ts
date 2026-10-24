@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { can } from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/types";
 import type { DbLike } from "@/server/db/client";
-import { employeeDocuments, employees, expenseClaims, leaveRequests, payslips, type FileRow } from "@/server/db/schema";
+import { employeeDocuments, expenseClaims, leaveRequests, payslips, type FileRow } from "@/server/db/schema";
+import { isEmployeePhoto } from "@/server/modules/employees/photo";
 import { canDecideLeave } from "@/server/modules/leave/requests";
 import { canViewPayslip } from "@/server/modules/payroll/access";
 import { canDecideClaim } from "@/server/modules/payroll/claims";
@@ -19,8 +20,7 @@ const RESOLVERS: FileAccessResolver[] = [
   (_db, user) => user.roles.includes("super_admin"),
   (db, _user, file) => getSetting(db, "company").logoFileId === file.id,
   // Photos are for every colleague, like the directory they appear in.
-  (db, user, file) =>
-    can(user, "directory.view") && !!db.select({ id: employees.id }).from(employees).where(eq(employees.photoFileId, file.id)).get(),
+  (db, user, file) => can(user, "directory.view") && isEmployeePhoto(db, file.id),
   (db, user, file) => can(user, "payroll.configure") && getSetting(db, "payroll").signatoryImageFileId === file.id,
   // Employee documents are as private as Personal and Bank & IDs: the employee themself and org-wide viewers
   // (`employee.view`: HR, payroll, super admin) only. A manager above does NOT get them — id_proof/address_proof
