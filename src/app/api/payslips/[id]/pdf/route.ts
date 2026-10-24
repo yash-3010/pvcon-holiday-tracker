@@ -6,6 +6,7 @@ import { config } from "@/server/config";
 import { db } from "@/server/db";
 import { getFile, resolveStoredPath } from "@/server/modules/files/service";
 import { canViewPayslip } from "@/server/modules/payroll/access";
+import { payslipEnv } from "@/server/modules/payroll/env";
 import { renderPayslip, requirePayslip } from "@/server/modules/payroll/payslips";
 
 const pdfResponse = (data: Uint8Array, filename: string, inline: boolean) =>
@@ -44,7 +45,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     const pdf = await renderPayslip(
       db,
       payslip.id,
-      { uploadDir: config.uploadDir, appUrl: config.appUrl, signing: null },
+      payslipEnv({ sign: false }),
       { code: null, draft: true, now: new Date() },
     );
     return pdfResponse(pdf, `DRAFT ${name}`, true);

@@ -14,6 +14,7 @@ import {
 import type { ScopeUser } from "@/server/modules/employees/scope";
 import { getSetting } from "@/server/modules/settings/service";
 import { canDecideClaim } from "./claims";
+import { employedInPeriod } from "./inputs";
 import { salaryPreview } from "./salaries";
 import { structureComponents } from "./structures";
 
@@ -150,6 +151,24 @@ export function runDetail(db: DbLike, runId: number): RunDetail | null {
       excluded: rows.filter((r) => r.status === "excluded").length,
     },
   };
+}
+
+/** Who and what a run's manual inputs can be for: employees in its period (any current one off-cycle), per-run components. */
+export function runInputOptions(db: DbLike, run: PayrollRunRow) {
+  const ids = run.type === "regular" ? [...employedInPeriod(db, run.period)] : null;
+  const people = db
+    .select({ id: employees.id, name: employees.displayName, code: employees.employeeCode })
+    .from(employees)
+    .where(ids ? inArray(employees.id, ids.length ? ids : [-1]) : inArray(employees.status, ["active", "on_notice"]))
+    .orderBy(asc(employees.employeeCode))
+    .all();
+  const components = db
+    .select({ id: salaryComponents.id, code: salaryComponents.code, name: salaryComponents.name, kind: salaryComponents.kind })
+    .from(salaryComponents)
+    .where(and(eq(salaryComponents.calc, "input"), eq(salaryComponents.system, false), eq(salaryComponents.archived, false)))
+    .orderBy(asc(salaryComponents.sortOrder), asc(salaryComponents.id))
+    .all();
+  return { people, components };
 }
 
 export interface PayslipDetail {
