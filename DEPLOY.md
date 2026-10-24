@@ -34,9 +34,21 @@ The new app gets its own checkout, so the old one stays untouched for a rollback
 
 - Ubuntu 24.04 LTS (22.04 works too).
 - **2 GB RAM recommended.** `next build` needs more memory than serving does. On a 1 GB plan, add a 2 GB swap file
-  before the first build.
+  before the first build. The Holiday Tracker's 512 MB plan is too small.
 - Open TCP 22, 80 and 443 in Lightsail networking.
 - Attach a static IP, and point the domain's `A` record at it.
+
+Lightsail can't resize an instance in place. The usual route is a **new 2 GB instance** for PVCON People, while the
+Holiday Tracker keeps running on the old one until go-live:
+
+1. Create the instance (Ubuntu, the 2 GB plan, the same region).
+2. Give it its own static IP.
+3. Do sections 1–8 on it.
+4. During the go-live (section 9.2), copy the old database across, then point DNS at the new instance.
+
+The old instance stays as the rollback until you're confident, then delete it. Resizing the old instance instead
+(snapshot, then a new instance from the snapshot on a bigger plan) also works, but it upgrades the live server
+before the cutover.
 
 ```bash
 # Swap (only on plans under 2 GB)
@@ -132,6 +144,16 @@ EOF
 sudo systemctl reload caddy
 ```
 
+With a new domain (e.g. `people.pvcon.in`) the site block uses that name, and `APP_URL` matches it. Choose the domain
+before the first payroll is released: payslip QR codes and email links carry it. To keep bookmarks and old links to the
+Holiday Tracker working, add a redirect block, with the old name's DNS pointing at this server too:
+
+```
+holidays.pvcon.in {
+    redir https://people.pvcon.in{uri} permanent
+}
+```
+
 Caddy gets and renews the Let's Encrypt certificate itself. The app sets its own security headers (CSP, frame and
 content-type options).
 
@@ -195,11 +217,24 @@ Rotate `/var/log/pvcon-*.log` with logrotate, or truncate them now and then.
 
 ## 7. Backups and restore
 
-A backup holds three things:
+The nightly backup holds two things:
 
 - the database, as a consistent copy made with `sqlite3 .backup`, which is safe while the app runs;
-- the uploads folder (payslip PDFs are kept byte for byte, and verification relies on them);
-- `.env.local`, encrypted. The `DATA_ENCRYPTION_KEY` should also be kept apart from the backups.
+- the uploads folder (payslip PDFs are kept byte for byte, and verification relies on them).
+
+The secrets in `.env.local` are deliberately not in it: a backup that holds the key would expose the bank and ID
+numbers it protects. Keep them as follows.
+
+- **`DATA_ENCRYPTION_KEY` is the one secret that can't be replaced.** Bank account and ID numbers in the database
+  and every backup are encrypted with it. Without it they can't be read, and a new key won't help. So:
+  - store it, labelled "PVCON People — DATA_ENCRYPTION_KEY", in the company password manager (Bitwarden, 1Password
+    or similar), shared with at least two people;
+  - never put it in git, email, chat or the S3 bucket;
+  - never change it once data exists (there is no re-encryption tool);
+  - check it each quarter: restore a backup on a scratch machine with the saved key (section 7, restore) and open an
+    employee's Bank & IDs tab.
+- **Also store `AUTH_SECRET`, `CRON_SECRET` and the SMTP password** in the same vault entry. They can be replaced if
+  lost (sign-ins and the crontab just need the new values), but keeping them saves a scramble during a restore.
 
 Create an S3 bucket (for example `pvcon-people-backup`, region `ap-south-1`) with:
 
@@ -312,6 +347,8 @@ delete the `/tmp` files.
    sqlite3 /var/www/pvcon-holiday-tracker/data/app.db ".backup $HOME/cutover/app-final.db"
    aws s3 cp ~/cutover/app-final.db s3://pvcon-people-backup/cutover/app-final.db
    ```
+   On a new instance, run that on the old server, then copy the file to the new one, with `aws s3 cp` from the
+   bucket or `scp`, into `~/cutover/app-final.db`. Run the remaining steps on the new server.
 3. Build the new database (the target must not exist yet):
    ```bash
    cd /var/www/pvcon-people && mkdir -p data/uploads
@@ -327,6 +364,8 @@ delete the `/tmp` files.
    ```bash
    pm2 start npm --name pvcon-people -- start && pm2 save
    ```
+   On a new instance, point the domain's DNS record at it now (or move the static IP), and wait for Caddy to get its
+   certificate.
 6. Install the crontab (section 6) and the backup (section 7). Remove the old app's backup line from root's crontab
    (`sudo crontab -e`).
 7. Smoke test (section 9.3).
@@ -355,6 +394,8 @@ pm2 stop pvcon-people
 pm2 start pvcon-holidays && pm2 save
 ```
 
+On a new instance, start `pvcon-holidays` on the old server and point DNS back at it.
+
 Leave changes made in the new app since go-live are not copied back. Note them before rolling back. To retry later,
 move `data/people.db*` aside and start again from 9.2.
 
@@ -379,3 +420,4 @@ chmod 700 /var/www/pvcon-people/data
 | No emails | Settings → Email: server status, outbox counts, test email |
 | A job didn't run | Settings → Jobs (last run and its detail), `/var/log/pvcon-jobs.log`, `crontab -l` |
 | HTTPS problems | `journalctl -u caddy --since today` |
+| `next build` stops with `SecurityFatalError` | Next.js has found a published advisory for the installed version. Running the build again continues, but plan the Next.js upgrade (roadmap refinement 81). |
