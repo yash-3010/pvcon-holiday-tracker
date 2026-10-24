@@ -63,10 +63,10 @@ export interface ReportDefinition {
   title: string;
   description: string;
   /** Any of these runs the report. */
-  permissions: Permission[];
+  permissions: readonly Permission[];
   /** Holders see everyone; others see their reporting tree. */
   orgWide: Permission;
-  filters: FilterKind[];
+  filters: readonly FilterKind[];
   run: (db: DbLike, ctx: ReportContext, params: ReportParams) => ReportResult;
 }
 
