@@ -1,0 +1,109 @@
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { nowIso, timestamps } from "../columns";
+import { users } from "./auth";
+
+export const companySettings = sqliteTable("company_settings", {
+  key: text("key").primaryKey(),
+  value: text("value", { mode: "json" }).$type<unknown>().notNull(),
+  updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),
+});
+
+export const auditLogs = sqliteTable(
+  "audit_logs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    actorUserId: integer("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id"),
+    summary: text("summary").notNull(),
+    diff: text("diff", { mode: "json" }).$type<Record<string, unknown> | null>(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    at: text("at").notNull().$defaultFn(nowIso),
+  },
+  (t) => [
+    index("audit_logs_entity_idx").on(t.entityType, t.entityId),
+    index("audit_logs_at_idx").on(t.at),
+    index("audit_logs_actor_idx").on(t.actorUserId),
+  ],
+);
+
+export const EMAIL_STATUSES = ["pending", "sending", "sent", "digest", "skipped"] as const;
+
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    link: text("link"),
+    readAt: text("read_at"),
+    /**
+     * The email copy: `pending` (to send now), `sending` (claimed by a sender), `sent`, `digest` (in the next daily
+     * digest) or `skipped` (the user opted out, the type emails itself, SMTP is off, or sending kept failing).
+     */
+    emailStatus: text("email_status", { enum: EMAIL_STATUSES }).notNull().default("skipped"),
+    emailAttempts: integer("email_attempts").notNull().default(0),
+    /** When a sender claimed the row (`sending`); a claim much older than a send takes means the sender died. */
+    emailClaimedAt: text("email_claimed_at"),
+    emailedAt: text("emailed_at"),
+    createdAt: text("created_at").notNull().$defaultFn(nowIso),
+  },
+  (t) => [index("notifications_user_idx").on(t.userId, t.readAt), index("notifications_email_idx").on(t.emailStatus, t.createdAt)],
+);
+
+export const jobRuns = sqliteTable(
+  "job_runs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    job: text("job").notNull(),
+    runKey: text("run_key").notNull(),
+    status: text("status", { enum: ["running", "succeeded", "failed"] }).notNull(),
+    startedAt: text("started_at").notNull(),
+    finishedAt: text("finished_at"),
+    detail: text("detail"),
+  },
+  (t) => [uniqueIndex("job_runs_job_key_idx").on(t.job, t.runKey)],
+);
+
+export const files = sqliteTable("files", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  storageName: text("storage_name").notNull().unique(),
+  originalName: text("original_name").notNull(),
+  mime: text("mime").notNull(),
+  size: integer("size").notNull(),
+  sha256: text("sha256").notNull(),
+  uploadedBy: integer("uploaded_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: text("created_at").notNull().$defaultFn(nowIso),
+});
+
+export type AuditLogRow = typeof auditLogs.$inferSelect;
+export type NotificationRow = typeof notifications.$inferSelect;
+export type JobRunRow = typeof jobRuns.$inferSelect;
+export type FileRow = typeof files.$inferSelect;
+
+/** Company announcements (spec §4.1): shown from `publish_at` until `expires_at` (exclusive), pinned ones first. */
+export const announcements = sqliteTable(
+  "announcements",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+    publishAt: text("publish_at").notNull(),
+    expiresAt: text("expires_at"),
+    /** When everyone was notified; set once. */
+    notifiedAt: text("notified_at"),
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps(),
+  },
+  (t) => [index("announcements_publish_idx").on(t.publishAt)],
+);
+
+export type AnnouncementRow = typeof announcements.$inferSelect;
