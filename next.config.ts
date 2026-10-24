@@ -16,6 +16,8 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // CLAUDE.md already points agents at the bundled docs; keep `next dev` from writing an AGENTS.md as well.
+  agentRules: false,
   // Native, wasm or font-loading packages run from node_modules instead of the bundle.
   serverExternalPackages: ["better-sqlite3", "@react-pdf/renderer", "@signpdf/signpdf", "@signpdf/signer-p12", "node-forge", "exceljs"],
   experimental: {

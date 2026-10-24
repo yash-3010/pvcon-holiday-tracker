@@ -192,6 +192,10 @@ pino · nodemailer · papaparse · vitest · Playwright (with @axe-core/playwrig
 - Read `node_modules/next/dist/docs/` for Next 16 APIs before guessing:
   - `params` and `searchParams` are Promises.
   - `forbidden()` needs `experimental.authInterrupts`.
+- While the installed Next.js has a known advisory, `next build` and `next dev` run by an agent stop once with
+  `SecurityFatalError` (`experimental.agentUpgrade`). Re-run within 5 minutes and they continue with a warning; this
+  includes the e2e server. Don't run the `next upgrade --agent` it suggests, because it installs the newest patch
+  however recent. Upgrade Next by hand once a fixed release has had its two-week soak.
 - `lucide-react` is 1.x. Use canonical icon names (`House`, `Ellipsis`, `LoaderCircle`) rather than the
   legacy aliases (`Home`, `MoreHorizontal`, `Loader2`). Check a name exists with
   `grep -o " Name," node_modules/lucide-react/dist/lucide-react.d.ts`.
