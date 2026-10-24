@@ -32,7 +32,7 @@ Leave + Comp-off, Payroll + Payslips and Reports, as specified in
 | 3 Attendance + comp-off | `2026-10-24-phase-3-attendance-compoff.md` | ☑ done (f3684ce) |
 | 4 Timesheets | `2026-10-24-phase-4-timesheets.md` | ☑ done (ad47353) |
 | 5 Payroll + payslips | `2026-10-24-phase-5-payroll.md` | ☑ done (529e453) |
-| 6 Insight, notifications, polish, deploy | to be written | ☐ not started |
+| 6 Insight, notifications, polish, deploy | `2026-10-24-phase-6-insight-polish.md` | ◐ in progress (plan written) |
 
 Status values: ☐ not started · ◐ in progress (note last finished task) · ☑ done (note commit hash).
 
