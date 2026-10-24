@@ -17,7 +17,7 @@ const csp = [
 
 const nextConfig: NextConfig = {
   // Native, wasm or font-loading packages run from node_modules instead of the bundle.
-  serverExternalPackages: ["better-sqlite3", "@react-pdf/renderer", "@signpdf/signpdf", "@signpdf/signer-p12", "node-forge"],
+  serverExternalPackages: ["better-sqlite3", "@react-pdf/renderer", "@signpdf/signpdf", "@signpdf/signer-p12", "node-forge", "exceljs"],
   experimental: {
     authInterrupts: true,
     serverActions: { bodySizeLimit: "11mb" },
