@@ -61,7 +61,7 @@ export default async function ReportPage({
       />
       <div className="space-y-4">
         <p className="text-sm">
-          <Link href="/reports" className="text-primary hover:underline">
+          <Link href="/reports" className="text-primary underline underline-offset-2">
             All reports
           </Link>
           {ctx.scope !== null && <span className="text-muted-foreground"> · Showing the people who report to you</span>}

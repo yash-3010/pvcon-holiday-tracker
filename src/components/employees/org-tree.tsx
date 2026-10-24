@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { OrgChartNode } from "@/server/modules/employees/queries";
+import { OrgBranch } from "./org-branch";
 
 function NodeCard({ node, canOpen }: { node: OrgChartNode; canOpen: boolean }) {
   return (
@@ -19,7 +20,7 @@ function NodeCard({ node, canOpen }: { node: OrgChartNode; canOpen: boolean }) {
   );
 }
 
-/** Nested reporting lines; the first two levels start expanded. Pure server component (native <details>). */
+/** Nested reporting lines; the first two levels start expanded. */
 export function OrgTree({ nodes, profileIds, depth = 0 }: { nodes: OrgChartNode[]; profileIds: "all" | Set<number>; depth?: number }) {
   const canOpen = (id: number) => profileIds === "all" || profileIds.has(id);
   return (
@@ -27,14 +28,14 @@ export function OrgTree({ nodes, profileIds, depth = 0 }: { nodes: OrgChartNode[
       {nodes.map((node) => (
         <li key={node.id}>
           {node.reports.length > 0 ? (
-            <details open={depth < 2}>
-              <summary className="cursor-pointer list-none">
-                <NodeCard node={node} canOpen={canOpen(node.id)} />
-              </summary>
+            <OrgBranch name={node.displayName} defaultOpen={depth < 2} card={<NodeCard node={node} canOpen={canOpen(node.id)} />}>
               <OrgTree nodes={node.reports} profileIds={profileIds} depth={depth + 1} />
-            </details>
+            </OrgBranch>
           ) : (
-            <NodeCard node={node} canOpen={canOpen(node.id)} />
+            // Lines up with the cards that have an expand button.
+            <div className="pl-7">
+              <NodeCard node={node} canOpen={canOpen(node.id)} />
+            </div>
           )}
         </li>
       ))}

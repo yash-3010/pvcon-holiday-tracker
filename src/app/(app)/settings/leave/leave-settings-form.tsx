@@ -34,7 +34,7 @@ export function LeaveSettingsForm({ initial, yearLocked }: { initial: FormOutput
         <CardTitle>Leave year</CardTitle>
         <CardDescription>
           Balances, grants and carry-forward follow the leave year. Weekly offs belong to shifts: see{" "}
-          <Link href="/time/shifts" className="text-primary hover:underline">
+          <Link href="/time/shifts" className="text-primary underline underline-offset-2">
             Shifts
           </Link>
           .

@@ -59,7 +59,7 @@ export function MonthCalendar({ days, onSelect }: { days: MyAttendanceDay[]; onS
               </span>
             </span>
             {day.status && <span className="font-semibold">{day.leaveCode && day.status === "on_leave" ? day.leaveCode : ATTENDANCE_CODES[day.status]}</span>}
-            {day.workedMinutes > 0 && <span className="tabular-nums opacity-80">{formatMinutes(day.workedMinutes)}</span>}
+            {day.workedMinutes > 0 && <span className="tabular-nums">{formatMinutes(day.workedMinutes)}</span>}
           </button>
         ))}
       </div>

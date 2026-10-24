@@ -20,11 +20,12 @@
   --border: #e3e6ee;
   --input: #d3d8e4;
   --ring: #3b4f99;
-  --destructive: #d92d20;
+  /* Status colours are dark enough for small text on their own 15% tint (WCAG AA, 4.5:1). */
+  --destructive: #b8261b;
   --destructive-foreground: #ffffff;
-  --success: #1f9d55;
-  --warning: #b86e00;
-  --info: #2563eb;
+  --success: #166f3c;
+  --warning: #8e5500;
+  --info: #2158d1;
   --sidebar: #ffffff;
   --sidebar-foreground: #3b4260;
   --sidebar-active: #eef1f9;
@@ -50,11 +51,11 @@
   --border: #242d4a;
   --input: #2e3858;
   --ring: #8fa3ec;
-  --destructive: #f0605a;
+  --destructive: #f27974;
   --destructive-foreground: #0c1020;
   --success: #3fca7f;
   --warning: #f0b43c;
-  --info: #6b9cff;
+  --info: #6f9fff;
   --sidebar: #0f1528;
   --sidebar-foreground: #b4bcd6;
   --sidebar-active: #1c2548;

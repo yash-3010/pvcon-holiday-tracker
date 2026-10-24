@@ -16,7 +16,7 @@ export default async function OrgChartPage() {
   const viewable = viewableEmployeeIds(db, user);
   return (
     <>
-      <PageHeader title="Org chart" description="Reporting lines of everyone currently at PVCON. Click a name to expand or collapse." />
+      <PageHeader title="Org chart" description="Reporting lines of everyone currently at PVCON. Use the arrow next to a manager to show or hide their team." />
       {nodes.length === 0 ? (
         <EmptyState icon={Network} title="No employees yet" description="The chart fills in as HR adds employees and reporting managers." />
       ) : (

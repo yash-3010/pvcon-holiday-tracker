@@ -18,7 +18,7 @@ export default async function ShiftsPage() {
         description={
           <>
             Working hours, grace, thresholds and weekly offs. Employees without a shift follow the default, chosen in{" "}
-            <Link href="/settings/attendance" className="text-primary hover:underline">
+            <Link href="/settings/attendance" className="text-primary underline underline-offset-2">
               attendance settings
             </Link>
             .

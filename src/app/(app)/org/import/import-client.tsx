@@ -146,7 +146,7 @@ export function ImportClient() {
       {done && (
         <Alert variant="success" title={`Imported ${done.created} employee(s)`}>
           {done.codes.join(", ")} ·{" "}
-          <Link href="/org/employees" className="text-primary hover:underline">
+          <Link href="/org/employees" className="text-primary underline underline-offset-2">
             View employees
           </Link>
         </Alert>

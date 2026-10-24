@@ -60,7 +60,7 @@ export function LoginCard({
               {user.status === "disabled" && <Badge variant="secondary">Disabled</Badge>}
             </div>
             {canManage && (
-              <Link href="/settings/users" className="text-primary hover:underline">
+              <Link href="/settings/users" className="text-primary underline underline-offset-2">
                 Manage in Users &amp; roles
               </Link>
             )}

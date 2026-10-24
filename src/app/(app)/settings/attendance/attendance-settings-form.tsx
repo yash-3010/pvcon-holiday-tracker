@@ -34,7 +34,7 @@ export function AttendanceSettingsForm({ initial, shifts }: { initial: Values; s
         <CardTitle>Attendance</CardTitle>
         <CardDescription>
           Times, grace, thresholds and weekly offs belong to shifts: see{" "}
-          <Link href="/time/shifts" className="text-primary hover:underline">
+          <Link href="/time/shifts" className="text-primary underline underline-offset-2">
             Shifts
           </Link>
           .
