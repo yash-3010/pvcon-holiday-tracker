@@ -48,6 +48,18 @@ npm run dev            # http://localhost:3000
 Email is optional: without `SMTP_*` settings, emails are skipped and logged. Jobs can be run by hand under
 Settings → Jobs.
 
+To try every role with realistic data, build the demo company in its own database (`data/demo.db`; `people.db` is
+never touched) and run the app against it:
+
+```bash
+npm run db:demo        # 13 people, three months of history, something waiting in every inbox (Node 22.15+)
+npm run dev:demo       # http://localhost:3000, no emails sent
+```
+
+Every demo login uses the password `Demo-Pass-123`: `admin@`, `hema@` (HR and payroll), `arjun@` (director), `ravi@`
+and `neha@` (managers), `asha@`, `kiran@`, `rohan@` and `priya@` (employees), all `@pvcon.in`. The command prints
+what's waiting for whom, with dates; the dates follow today, so run it again for a fresh start.
+
 To try the migration from the old Holiday Tracker, copy its database to `data/legacy/app.db`. Then:
 
 ```bash
@@ -66,6 +78,7 @@ It never modifies the old file and verifies every leave balance against the old 
 | `npm run db:migrate` | Apply migrations (refuses to touch a Holiday Tracker database) |
 | `npm run db:seed` | Idempotent defaults and the first super admin |
 | `npm run db:reset` | Delete `./data/people.db*`, migrate and seed (development only) |
+| `npm run db:demo` / `npm run dev:demo` | Build the demo company in `./data/demo.db` / run the dev server against it |
 | `npm run db:migrate-legacy -- --from <old> --to <new>` | Build a new database from the Holiday Tracker's, verified |
 | `npm test` | Unit and integration tests (Vitest) |
 | `npm run test:e2e` | End-to-end tests (Playwright). They start their own server on port 3100 with `./data/e2e.db`, so stop `npm run dev` first. |
