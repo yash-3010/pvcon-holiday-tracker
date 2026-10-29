@@ -82,10 +82,19 @@ describe("events and pickers", () => {
   it("lists events newest first with the author's name", () => {
     const row = createEmployee(db, hr, employeeInput(), none);
     recordEmployeeEvent(db, { employeeId: row.id, type: "confirmed", effectiveDate: "2027-04-01", to: { confirmationDate: "2027-04-01" }, createdBy: hr.id });
-    expect(listEmployeeEvents(db, row.id).map((e) => [e.type, e.effectiveDate, e.createdByName])).toEqual([
+    expect(listEmployeeEvents(db, row.id, { includeSalary: true }).map((e) => [e.type, e.effectiveDate, e.createdByName])).toEqual([
       ["confirmed", "2027-04-01", "Hari Rao"],
       ["joined", "2026-10-01", "Hari Rao"],
     ]);
+  });
+
+  it("leaves salary revisions out for people who may not see salaries", () => {
+    const row = createEmployee(db, hr, employeeInput(), none);
+    recordEmployeeEvent(db, {
+      employeeId: row.id, type: "salary_revised", effectiveDate: "2027-04-01", from: { annualCtc: 120_000_000 }, to: { annualCtc: 150_000_000 }, createdBy: hr.id,
+    });
+    expect(listEmployeeEvents(db, row.id, { includeSalary: true }).map((e) => e.type)).toEqual(["salary_revised", "joined"]);
+    expect(listEmployeeEvents(db, row.id, { includeSalary: false }).map((e) => e.type)).toEqual(["joined"]);
   });
 
   it("offers current employees and unlinked active logins", () => {

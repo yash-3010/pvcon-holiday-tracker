@@ -313,6 +313,8 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
     someone who has clocked in but not out reads `absent` until they clock out. A run computed during the day would
     otherwise charge everyone at work a day's loss of pay. Today is projected like the days after it, unless HR has
     overridden it.
+83. **Salary revisions in an employee's History** show only to people who may see salaries (`salary.view`) and to the
+    employee. The Salary tab was already gated; the History tab showed the same amounts to managers and HR admins.
 
 ## Cross-phase integration map
 
