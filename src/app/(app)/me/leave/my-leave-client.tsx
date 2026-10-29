@@ -194,12 +194,20 @@ export function MyHolidays({
                   </TableCell>
                   <TableCell>
                     {pick ? (
-                      <Switch
-                        aria-label={`Take ${h.name} off`}
-                        checked={pick.selected}
-                        disabled={pick.locked || atLimit || toggle.pending}
-                        onCheckedChange={(selected) => toggle.run({ holidayId: h.id, selected })}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          aria-label={`Take ${h.name} off`}
+                          checked={pick.selected}
+                          disabled={pick.locked || atLimit || toggle.pending}
+                          onCheckedChange={(selected) => toggle.run({ holidayId: h.id, selected })}
+                        />
+                        {/* Say why a switch can't be used: a past date, or this year's picks are used up. */}
+                        {pick.locked ? (
+                          <span className="text-xs text-muted-foreground">Passed</span>
+                        ) : atLimit ? (
+                          <span className="text-xs text-muted-foreground">Limit reached</span>
+                        ) : null}
+                      </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">Everyone</span>
                     )}

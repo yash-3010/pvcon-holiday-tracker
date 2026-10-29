@@ -68,14 +68,14 @@ function holidaysFor(year: number): [ISODate, string, "fixed" | "optional"][] {
   const list: [ISODate, string, "fixed" | "optional"][] = [
     [`${year}-01-26`, "Republic Day", "fixed"], [`${year}-05-01`, "Maharashtra Day", "fixed"], [`${year}-08-15`, "Independence Day", "fixed"],
     [`${year}-10-02`, "Gandhi Jayanti", "fixed"], [`${year}-12-25`, "Christmas", "fixed"],
+    // Optional ones on fixed dates, so there are always some ahead to pick in the walkthrough.
+    [`${year}-01-01`, "New Year's Day", "optional"], [`${year}-12-24`, "Christmas Eve", "optional"], [`${year}-12-31`, "New Year's Eve", "optional"],
   ];
   if (year === 2026) {
     list.push(
       ["2026-03-04", "Holi", "optional"], ["2026-08-28", "Raksha Bandhan", "optional"], ["2026-09-04", "Janmashtami", "optional"],
       ["2026-10-20", "Dussehra", "fixed"], ["2026-11-09", "Diwali", "fixed"], ["2026-11-24", "Guru Nanak Jayanti", "optional"],
     );
-  } else {
-    list.push([`${year}-01-01`, "New Year's Day", "optional"], [`${year}-12-24`, "Christmas Eve", "optional"]);
   }
   return list.sort((a, b) => a[0].localeCompare(b[0]));
 }
