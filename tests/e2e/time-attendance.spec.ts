@@ -65,23 +65,39 @@ test.describe.serial("attendance and comp-off", () => {
     employeeTemp = await addEmployee(page, EMPLOYEE, `${MANAGER.first} ${MANAGER.last}`);
   });
 
-  test("the employee clocks in and out from the dashboard and sees today's punches", async ({ browser }) => {
+  test("the employee runs the day's clock from the dashboard and the top bar, and sees today's punches", async ({ browser }) => {
     employee = await signedIn(browser, EMPLOYEE, employeeTemp);
     const card = employee.getByTestId("clock-card");
-    await card.getByLabel("Work mode").selectOption("remote");
-    await card.getByRole("button", { name: "Clock in" }).click();
+    const bar = employee.getByTestId("topbar-clock");
+    await expect(card.getByText("Not clocked in", { exact: true })).toBeVisible();
+    await card.getByRole("radio", { name: "Remote" }).click();
+    await card.getByRole("button", { name: "Clock in", exact: true }).click();
     await expect(card.getByText(/In since \d\d:\d\d/)).toBeVisible();
-    await expect(card.getByText("Remote")).toBeVisible();
-    await card.getByRole("button", { name: "Clock out" }).click();
-    await expect(card.getByText("Not clocked in")).toBeVisible();
+    await expect(card.getByText("· Remote")).toBeVisible();
+    // The top bar and the tab title carry the running clock on every page.
+    await expect(bar.getByRole("button", { name: /^Working, 0 hours \d+ minutes today/ })).toBeVisible();
+    await expect(employee).toHaveTitle(/^🟢 0:00:\d\d · /);
+
+    await bar.getByRole("button", { name: "Take a break", exact: true }).click();
+    await expect(card.getByText("On a break", { exact: true })).toBeVisible();
+    await expect(employee).toHaveTitle(/^🟡 Break 0:00:\d\d · /);
+    await bar.getByRole("button", { name: "Resume", exact: true }).click();
+    await expect(card.getByText("Working", { exact: true })).toBeVisible();
+
+    await card.getByRole("button", { name: "Clock out", exact: true }).click();
+    await expect(card.getByText("Done for today", { exact: true })).toBeVisible();
+    await expect(employee).not.toHaveTitle(/^(🟢|🟡)/u);
 
     await employee.goto("/me/attendance");
     await employee.waitForLoadState("networkidle");
     await employee.getByTestId(`day-${today}`).click();
     const sheet = employee.getByRole("dialog");
-    await expect(sheet.getByRole("listitem")).toHaveCount(2);
-    await expect(sheet.getByRole("listitem").first()).toContainText("In");
-    await expect(sheet.getByRole("listitem").last()).toContainText("Out");
+    const punches = sheet.getByRole("listitem");
+    await expect(punches).toHaveCount(4);
+    await expect(punches.nth(0)).toContainText("In");
+    await expect(punches.nth(1)).toContainText("Break");
+    await expect(punches.nth(2)).toContainText("In");
+    await expect(punches.nth(3)).toContainText("Out");
   });
 
   test("the nightly close computes past days, and the employee corrects last Saturday, which they worked", async ({ request }) => {

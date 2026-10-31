@@ -38,7 +38,7 @@ function TodayClockCard({ clock }: { clock: ClockContextValue }) {
         <div className="space-y-2">
           <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
             <StateDot state={snapshot.state} />
-            {STATE_STYLE[snapshot.state].label}
+            <span>{STATE_STYLE[snapshot.state].label}</span>
             {running && <span className="font-normal text-muted-foreground">· {WORK_MODE_LABELS[snapshot.workMode]}</span>}
           </p>
           <p className="text-5xl font-semibold tabular-nums tracking-tight" aria-label={snapshot.state === "break" ? "Break so far" : "Worked today"}>

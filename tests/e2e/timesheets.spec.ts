@@ -7,13 +7,15 @@ test.use(CLIENT);
 const MANAGER = { first: "Nisha", last: "Verma", email: "nisha.verma@pvcon.in", password: "Nisha-Strong-Pass1" };
 const EMPLOYEE = { first: "Rohan", last: "Gupta", email: "rohan.gupta@pvcon.in", password: "Rohan-Strong-Pass1" };
 
-/** Last week's Monday as the app sees dates (company time zone, Asia/Kolkata by default): always fully in the past. */
-const lastMonday = (() => {
+/** This week's and last week's Mondays as the app sees dates (company time zone, Asia/Kolkata by default). */
+const [thisMonday, lastMonday] = (() => {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
   const d = new Date(`${today}T00:00:00Z`);
   const dow = d.getUTCDay();
-  d.setUTCDate(d.getUTCDate() - (dow === 0 ? 6 : dow - 1) - 7);
-  return d.toISOString().slice(0, 10);
+  d.setUTCDate(d.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+  const monday = d.toISOString().slice(0, 10);
+  d.setUTCDate(d.getUTCDate() - 7);
+  return [monday, d.toISOString().slice(0, 10)];
 })();
 
 async function signedIn(browser: Browser, person: typeof MANAGER, temp: string): Promise<Page> {
@@ -99,5 +101,26 @@ test.describe.serial("timesheets", () => {
     await expect(employee.getByRole("button", { name: "Submit" })).toHaveCount(0);
     await expect(employee.getByLabel(`GLX-APP Development ${lastMonday}`)).toHaveCount(0);
     await expect(employee.getByTestId("row-GLX-APP-Development")).toContainText("8");
+  });
+
+  test("clocking in from the top bar logs to the task they log most, and this week's timesheet says so", async () => {
+    await employee.goto("/");
+    await employee.waitForLoadState("networkidle");
+    const card = employee.getByTestId("clock-card");
+    await expect(card.getByRole("combobox", { name: "Project", exact: true }).locator("option:checked")).toHaveText("GLX-APP · Globex app");
+    await expect(card.getByRole("combobox", { name: "Task", exact: true }).locator("option:checked")).toHaveText("Development");
+
+    const bar = employee.getByTestId("topbar-clock");
+    await bar.getByRole("button", { name: "Clock in", exact: true }).click();
+    await expect(employee.getByText(/Clocked in at \d\d:\d\d · GLX-APP · Globex app · Development/)).toBeVisible();
+    await expect(card.getByText("GLX-APP · Globex app · Development", { exact: true })).toBeVisible();
+
+    await employee.goto(`/me/timesheets/${thisMonday}`);
+    await employee.waitForLoadState("networkidle");
+    await expect(employee.getByText("Your clock is logging to GLX-APP · Development")).toBeVisible();
+
+    await bar.getByRole("button", { name: "Clock out", exact: true }).click();
+    await expect(employee.getByText(/Clocked out at \d\d:\d\d/)).toBeVisible();
+    await expect(employee.getByText("Your clock is logging to GLX-APP · Development")).toHaveCount(0);
   });
 });
