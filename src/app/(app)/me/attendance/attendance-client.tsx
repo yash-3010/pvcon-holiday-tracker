@@ -140,7 +140,7 @@ function DayDetail({ day, shift, onDone }: { day: MyAttendanceDay; shift: { star
             {day.punches.map((p, i) => (
               <li key={i} className="flex items-center gap-2 tabular-nums">
                 <span className="w-12">{p.time}</span>
-                <span className="w-8 text-muted-foreground">{p.direction === "in" ? "In" : "Out"}</span>
+                <span className="w-10 text-muted-foreground">{p.direction === "in" ? "In" : p.startsBreak ? "Break" : "Out"}</span>
                 <span className="text-xs text-muted-foreground">
                   {WORK_MODE_LABELS[p.workMode]}
                   {p.source === "auto" ? " · automatic" : p.source === "regularization" ? " · corrected" : p.source === "admin" ? " · by HR" : ""}

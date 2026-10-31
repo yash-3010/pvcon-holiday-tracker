@@ -47,7 +47,7 @@ export interface MyAttendanceDay {
   locked: boolean;
   holiday: string | null;
   leaveCode: string | null;
-  punches: { time: string; direction: PunchDirection; source: PunchSource; workMode: WorkMode }[];
+  punches: { time: string; direction: PunchDirection; source: PunchSource; workMode: WorkMode; startsBreak: boolean }[];
   regularization: { id: number; status: string; requestedIn: number; requestedOut: number } | null;
   canRegularize: boolean;
   compOff: { eligibleDays: 0 | 0.5 | 1; claim: { id: number; status: string } | null; canClaim: boolean } | null;
@@ -145,7 +145,7 @@ export function myAttendanceMonth(
       leaveCode: leaveCodes.get(date) ?? null,
       punches: punches
         .filter((p) => p.date === date)
-        .map((p) => ({ time: formatHm(minutesInZone(new Date(p.at), timeZone)), direction: p.direction, source: p.source, workMode: p.workMode })),
+        .map((p) => ({ time: formatHm(minutesInZone(new Date(p.at), timeZone)), direction: p.direction, source: p.source, workMode: p.workMode, startsBreak: p.startsBreak })),
       regularization: reg,
       canRegularize:
         employed && date < today && diffDays(date, today) <= windowDays && !row?.locked && reg?.status !== "pending",
@@ -381,7 +381,7 @@ export interface AttendanceDayDetail {
     "status" | "firstIn" | "lastOut" | "workedMinutes" | "lateMinutes" | "earlyMinutes" | "overtimeMinutes" | "offDayWorked" | "locked" | "overrideStatus" | "overrideNote" | "overrideAt"
   > | null;
   overrideBy: string | null;
-  punches: { time: string; direction: PunchDirection; source: PunchSource; workMode: WorkMode; note: string | null }[];
+  punches: { time: string; direction: PunchDirection; source: PunchSource; workMode: WorkMode; note: string | null; startsBreak: boolean }[];
   holiday: string | null;
 }
 
@@ -411,7 +411,7 @@ export function attendanceDayDetail(db: DbLike, employeeId: number, date: ISODat
       .where(and(eq(attendancePunches.employeeId, employeeId), eq(attendancePunches.date, date)))
       .orderBy(asc(attendancePunches.at))
       .all()
-      .map((p) => ({ time: formatHm(minutesInZone(new Date(p.at), timeZone)), direction: p.direction, source: p.source, workMode: p.workMode, note: p.note })),
+      .map((p) => ({ time: formatHm(minutesInZone(new Date(p.at), timeZone)), direction: p.direction, source: p.source, workMode: p.workMode, note: p.note, startsBreak: p.startsBreak })),
     holiday: holidaysForEmployee(db, employeeId, date, date)[0]?.name ?? null,
   };
 }

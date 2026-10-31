@@ -6,6 +6,7 @@ import type { DbLike } from "@/server/db/client";
 import { attendancePunches, projects, taskCategories } from "@/server/db/schema";
 import { clockState } from "@/server/modules/attendance/punches";
 import { shiftForEmployee } from "@/server/modules/attendance/shifts";
+import { getSetting } from "@/server/modules/settings/service";
 import { allowedProjects, findTimesheet } from "@/server/modules/timesheets/service";
 import { runningTimer } from "@/server/modules/timesheets/timer";
 import { defaultSelection } from "./service";
@@ -15,6 +16,8 @@ export interface ClockSnapshot {
   /** Server epoch milliseconds of the reading; the browser counts on from its own receipt of it. */
   readAt: number;
   date: ISODate;
+  /** The company's time zone, for showing times. */
+  timeZone: string;
   state: ClockStateName;
   /** The current work mode, or the one to start with (the last used). */
   workMode: WorkMode;
@@ -71,6 +74,7 @@ export function clockSnapshot(db: DbLike, employeeId: number, now: Date): ClockS
   return {
     readAt: now.getTime(),
     date: state.date,
+    timeZone: getSetting(db, "locale").timezone,
     state: day.state,
     workMode: state.workMode ?? lastMode ?? "office",
     sessionStartedAt: day.sessionStartedAt,

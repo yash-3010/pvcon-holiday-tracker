@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ATTENDANCE_MODES, ATTENDANCE_STATUSES, COMP_OFF_RESOLUTIONS, WORK_MODES } from "@/lib/attendance";
+import { ATTENDANCE_MODES, ATTENDANCE_STATUSES, COMP_OFF_RESOLUTIONS } from "@/lib/attendance";
 import { parseHm } from "@/lib/dates";
 import { isHalfStep } from "@/lib/leave";
 import { isoDate, optionalText } from "./employees";
@@ -52,7 +52,6 @@ export const shiftSchema = z
   });
 export type ShiftInput = z.output<typeof shiftSchema>;
 
-export const punchSchema = z.object({ workMode: z.enum(WORK_MODES) });
 
 export const regularizationSchema = z
   .object({

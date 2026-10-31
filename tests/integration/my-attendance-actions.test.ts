@@ -19,7 +19,7 @@ vi.mock("@/server/auth/session", () => ({ getCurrentUser: async () => state.user
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
-import { clockInAction, clockOutAction, requestRegularizationAction, withdrawRegularizationAction } from "@/app/(app)/me/attendance/actions";
+import { requestRegularizationAction, withdrawRegularizationAction } from "@/app/(app)/me/attendance/actions";
 import { claimCompOffAction, withdrawCompOffClaimAction } from "@/app/(app)/me/comp-off/actions";
 
 let employeeId: number;
@@ -37,26 +37,6 @@ beforeEach(() => {
   state.user = sessionUserFor(state.db, login);
 });
 afterEach(() => vi.useRealTimers());
-
-describe("clock in and out", () => {
-  it("records punches with the client IP and audits them", async () => {
-    await expect(clockInAction({ workMode: "remote" })).resolves.toEqual({ ok: true, data: { state: "in", time: "09:40" } });
-    await expect(clockInAction({ workMode: "remote" })).resolves.toMatchObject({ ok: false, code: "ALREADY_IN" });
-    vi.setSystemTime(new Date("2026-11-10T12:40:00Z"));
-    await expect(clockOutAction({})).resolves.toEqual({ ok: true, data: { state: "out", time: "18:10" } });
-    await expect(clockOutAction({})).resolves.toMatchObject({ ok: false, code: "NOT_IN" });
-    expect(state.db.select().from(attendancePunches).all().map((p) => [p.direction, p.workMode, p.ip])).toEqual([
-      ["in", "remote", "203.0.113.7"],
-      ["out", "remote", "203.0.113.7"],
-    ]);
-    expect(audits()).toEqual(["attendance.punch", "attendance.punch"]);
-  });
-
-  it("needs an employee record", async () => {
-    state.user = sessionUserFor(state.db, insertUser(state.db, { roles: ["hr_admin"] }));
-    await expect(clockInAction({ workMode: "office" })).resolves.toMatchObject({ code: "FORBIDDEN" });
-  });
-});
 
 describe("regularization", () => {
   it("requests a correction for a past day and withdraws it", async () => {

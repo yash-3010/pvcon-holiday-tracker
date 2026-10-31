@@ -124,10 +124,14 @@ describe("work clock", () => {
     expect(db.select().from(runningTimers).get()).toMatchObject({ startedAt: "2026-10-23T04:00:00.000Z" });
   });
 
-  it("defaults to the last choice, then the last row logged, then the first project", () => {
+  it("defaults to the last choice, then the latest week's biggest row, then the first project", () => {
     expect(defaultSelection(db, asha.employee.id, "2026-10-21")).toEqual({ projectId: portal.id, taskCategoryId: dev.id, notes: null });
     saveWeek(db, asha.user, {
-      weekStart: "2026-10-19", rows: [{ projectId: internal.id, taskCategoryId: training.id, billable: false, notes: "", minutes: { "2026-10-19": 60 } }],
+      weekStart: "2026-10-19",
+      rows: [
+        { projectId: portal.id, taskCategoryId: dev.id, billable: true, notes: "", minutes: { "2026-10-19": 60 } },
+        { projectId: internal.id, taskCategoryId: training.id, billable: false, notes: "", minutes: { "2026-10-19": 120, "2026-10-20": 60 } },
+      ],
     }, { today: "2026-10-21" });
     expect(defaultSelection(db, asha.employee.id, "2026-10-21")).toEqual({ projectId: internal.id, taskCategoryId: training.id, notes: null });
     switchTask(db, asha.user, { projectId: portal.id, taskCategoryId: training.id, notes: "Reviews" }, at("03:00"));

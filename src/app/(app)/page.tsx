@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Cake, Inbox, PartyPopper, Pin } from "lucide-react";
-import { ClockCard } from "@/components/attendance/clock-card";
+import { TodayClock } from "@/components/clock/today-clock";
 import { AttendanceDonut, HeadcountChart, UtilizationBars } from "@/components/dashboard/charts";
 import { RunStatusBadge } from "@/components/payroll/run-status-badge";
 import { WeekCard } from "@/components/timesheets/week-card";
@@ -16,7 +16,6 @@ import { formatMoney } from "@/lib/money";
 import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
 import { currentAnnouncements } from "@/server/modules/announcements/queries";
-import { clockCardFor } from "@/server/modules/attendance/clock-card";
 import {
   compOffPrompts, headcountTrend, joinersLeavers, latestPayslip, leaveSnapshot, leavesToday, myPendingRequests, openExitsAndChecklists,
   payrollStatus, pendingApprovalCount, teamLeaveAhead, teamOutToday, teamToday, teamUtilization, upcomingCelebrations, upcomingHolidays,
@@ -63,7 +62,6 @@ export default async function DashboardPage() {
   const me =
     employeeId !== null
       ? {
-          clock: clockCardFor(db, employeeId, now),
           week: weekCard(db, employeeId, { today }),
           leave: leaveSnapshot(db, employeeId, today),
           payslip: latestPayslip(db, employeeId),
@@ -101,6 +99,8 @@ export default async function DashboardPage() {
         description={formatDate(today, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
       />
       <div className="space-y-8">
+        {/* The day's clock comes first: it's what everyone uses every day. */}
+        {me && <TodayClock />}
         {waiting > 0 && (
           <Card className="border-primary/30 bg-primary-soft">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -118,8 +118,7 @@ export default async function DashboardPage() {
 
         {me && (
           <Section title="My day">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <ClockCard key={me.clock.renderedAt} {...me.clock} />
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {me.week && <WeekCard week={me.week} />}
               <Card>
                 <CardHeader>

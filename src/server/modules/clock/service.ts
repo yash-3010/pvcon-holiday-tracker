@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, sum } from "drizzle-orm";
 import type { WorkMode } from "@/lib/attendance";
 import type { SessionUser } from "@/lib/auth/types";
 import { dateInTimeZone, formatHm, formatMinutes, minutesInZone, parseHm, zonedInstant, type ISODate } from "@/lib/dates";
@@ -49,19 +49,30 @@ function usable(db: DbLike, employeeId: number, selection: Omit<WorkSelection, "
 
 /**
  * The project and task the clock uses when nothing is chosen: the last choice while it's still open to them, else the
- * last row they logged, else their first project (client projects sort before Internal) with the first task.
+ * row with the most time in their latest timesheet, else their first project (client projects sort before Internal)
+ * with the first task.
  */
 export function defaultSelection(db: DbLike, employeeId: number, onDate: ISODate): WorkSelection | null {
   const saved = db.select().from(clockSelections).where(eq(clockSelections.employeeId, employeeId)).get();
   if (saved && usable(db, employeeId, saved, onDate)) return { projectId: saved.projectId, taskCategoryId: saved.taskCategoryId, notes: saved.notes };
-  const logged = db
-    .select({ projectId: timesheetEntries.projectId, taskCategoryId: timesheetEntries.taskCategoryId })
-    .from(timesheetEntries)
-    .innerJoin(timesheets, eq(timesheets.id, timesheetEntries.timesheetId))
+  const latest = db
+    .select({ id: timesheets.id })
+    .from(timesheets)
+    .innerJoin(timesheetEntries, eq(timesheetEntries.timesheetId, timesheets.id))
     .where(eq(timesheets.employeeId, employeeId))
-    .orderBy(desc(timesheetEntries.id))
+    .orderBy(desc(timesheets.weekStart))
     .get();
-  if (logged && usable(db, employeeId, logged, onDate)) return { ...logged, notes: null };
+  const rows = latest
+    ? db
+        .select({ projectId: timesheetEntries.projectId, taskCategoryId: timesheetEntries.taskCategoryId, minutes: sum(timesheetEntries.minutes).mapWith(Number) })
+        .from(timesheetEntries)
+        .where(eq(timesheetEntries.timesheetId, latest.id))
+        .groupBy(timesheetEntries.projectId, timesheetEntries.taskCategoryId)
+        .orderBy(desc(sum(timesheetEntries.minutes)))
+        .all()
+    : [];
+  const logged = rows.find((r) => usable(db, employeeId, r, onDate));
+  if (logged) return { projectId: logged.projectId, taskCategoryId: logged.taskCategoryId, notes: null };
   const project = allowedProjects(db, employeeId, onDate)[0];
   const category = db
     .select()
