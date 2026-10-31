@@ -338,7 +338,8 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
     - **Where the clock lives**
       - The first block on the dashboard and on My attendance.
       - The top bar on every page.
-      - The browser tab: title prefix and a dotted icon while it runs.
+      - The browser tab while it runs: the title starts with the time, and the tab icon becomes a dark green
+        record symbol (working) or an amber half circle (break), from `public/icons/clock-*.svg`.
       - A pop-out window in Chrome and Edge (Document Picture-in-Picture).
       - The command palette and the installed app's shortcuts.
       - Other tabs follow through a BroadcastChannel and `GET /api/me/clock`.

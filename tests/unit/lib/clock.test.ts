@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayClock, formatStopwatch, type ClockPunch } from "@/lib/clock";
+import { clockTabTitle, dayClock, formatStopwatch, type ClockPunch } from "@/lib/clock";
 
 // Times are UTC instants; 04:00Z is 09:30 in Pune.
 const at = (hhmm: string) => `2026-10-29T${hhmm}:00.000Z`;
@@ -52,5 +52,19 @@ describe("stopwatch", () => {
     expect(formatStopwatch(3 * 3600 + 12 * 60 + 45)).toBe("3:12:45");
     expect(formatStopwatch(59.9)).toBe("0:00:59");
     expect(formatStopwatch(-5)).toBe("0:00:00");
+  });
+});
+
+describe("tab title", () => {
+  it("leads with the running time, then the page's own title", () => {
+    expect(clockTabTitle("Dashboard · PVCON People", "working", 3 * 3600 + 12 * 60 + 45)).toBe("3:12:45 · Dashboard · PVCON People");
+    expect(clockTabTitle("My leave · PVCON People", "break", 12 * 60 + 3)).toBe("Break 0:12:03 · My leave · PVCON People");
+  });
+
+  it("replaces its own earlier reading and leaves the page title alone when the clock stops", () => {
+    expect(clockTabTitle("3:12:45 · Dashboard · PVCON People", "working", 3 * 3600 + 12 * 60 + 46)).toBe("3:12:46 · Dashboard · PVCON People");
+    expect(clockTabTitle("3:12:46 · Dashboard · PVCON People", "break", 1)).toBe("Break 0:00:01 · Dashboard · PVCON People");
+    expect(clockTabTitle("Break 0:00:09 · Dashboard · PVCON People", "done", 0)).toBe("Dashboard · PVCON People");
+    expect(clockTabTitle("Dashboard · PVCON People", "idle", 0)).toBe("Dashboard · PVCON People");
   });
 });

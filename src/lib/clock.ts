@@ -73,3 +73,14 @@ export function formatStopwatch(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
   return `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
+
+/** The reading a tab title starts with while the clock runs ("3:12:45 · " or "Break 0:12:03 · "). */
+const TITLE_READING = /^(?:Break )?\d+:\d{2}:\d{2} · /;
+
+/** A page's tab title with the clock's reading in front while it runs, and without it otherwise. */
+export function clockTabTitle(title: string, state: ClockStateName, seconds: number): string {
+  const page = title.replace(TITLE_READING, "");
+  if (state === "working") return `${formatStopwatch(seconds)} · ${page}`;
+  if (state === "break") return `Break ${formatStopwatch(seconds)} · ${page}`;
+  return page;
+}

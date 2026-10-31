@@ -76,17 +76,20 @@ test.describe.serial("attendance and comp-off", () => {
     await expect(card.getByText("· Remote")).toBeVisible();
     // The top bar and the tab title carry the running clock on every page.
     await expect(bar.getByRole("button", { name: /^Working, 0 hours \d+ minutes today/ })).toBeVisible();
-    await expect(employee).toHaveTitle(/^🟢 0:00:\d\d · /);
+    await expect(employee).toHaveTitle(/^0:00:\d\d · /);
+    await expect(employee.locator('link[rel~="icon"]').first()).toHaveAttribute("href", "/icons/clock-working.png");
 
     await bar.getByRole("button", { name: "Take a break", exact: true }).click();
     await expect(card.getByText("On a break", { exact: true })).toBeVisible();
-    await expect(employee).toHaveTitle(/^🟡 Break 0:00:\d\d · /);
+    await expect(employee).toHaveTitle(/^Break 0:00:\d\d · /);
+    await expect(employee.locator('link[rel~="icon"]').first()).toHaveAttribute("href", "/icons/clock-break.png");
     await bar.getByRole("button", { name: "Resume", exact: true }).click();
     await expect(card.getByText("Working", { exact: true })).toBeVisible();
 
     await card.getByRole("button", { name: "Clock out", exact: true }).click();
     await expect(card.getByText("Done for today", { exact: true })).toBeVisible();
-    await expect(employee).not.toHaveTitle(/^(🟢|🟡)/u);
+    await expect(employee).not.toHaveTitle(/^(Break )?\d+:\d\d:\d\d · /);
+    await expect(employee.locator('link[rel~="icon"]').first()).not.toHaveAttribute("href", /clock-/);
 
     await employee.goto("/me/attendance");
     await employee.waitForLoadState("networkidle");
