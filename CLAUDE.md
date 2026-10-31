@@ -125,6 +125,15 @@ pino · nodemailer · papaparse · vitest · Playwright (with @axe-core/playwrig
   - A row is (project, task category); saving replaces the week's entries. Only `draft` and `rejected` weeks change.
   - Who may log to a project comes from `allowedProjects()`; available hours from `workCalendar()` /
     `availableMinutes()`, never from the shift or leave tables directly.
+- **Work clock** (`src/server/modules/clock/`, roadmap refinement 84)
+  - One clock drives attendance and the timesheet. Clocking in punches in and logs to a project and task. A break is
+    an out punch with `starts_break`; the next in resumes. Worked time comes from `dayClock` (`src/lib/clock.ts`).
+  - Clock changes go through `startWork` / `takeBreak` / `resumeWork` / `switchTask` / `endWork` only, never through
+    raw punches or timers. Each piece of time lands in its timesheet cell through `stopEmployeeTimer`.
+  - Attendance always succeeds. When the timesheet can't take time, the clock reports it as `notices` rather than
+    refusing.
+  - Every clock action returns a fresh `clockSnapshot`, and the client (`src/components/clock/`) counts on from it. A
+    week save sends the grid's `version`, so clock time is never overwritten.
 - **Payroll**
   - Amounts are paise; formulas work in rupees (`src/lib/payroll/formula/*`, a hand-written parser with whitelisted
     names and functions). `calculatePayslip` (`src/lib/payroll/calculate.ts`) is pure and also runs in the browser

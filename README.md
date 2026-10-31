@@ -6,8 +6,8 @@ with a full HRMS. Staff use it in the browser or install it as an app from the b
 | Area | What it covers |
 |---|---|
 | Core HR | Employee records (bank and ID numbers encrypted), departments, designations, reporting lines, org chart, directory, documents, CSV import, onboarding and exit checklists, profile change requests |
-| Attendance | Web clock-in (office or remote), shifts with grace and half-day rules, daily close, muster roll, corrections (regularization), overrides, locking once payroll is approved |
-| Timesheets | Weekly grid by project and task category, timer, submit and approve, clients and projects with budgets |
+| Attendance | One work clock in the top bar and on the dashboard (office or remote, breaks, a pop-out window), shifts with grace and half-day rules, daily close, muster roll, corrections (regularization), overrides, locking once payroll is approved |
+| Timesheets | Filled by the work clock as people work, weekly grid by project and task category to review and adjust, submit and approve, clients and projects with budgets |
 | Leave | Configurable types, accrual or upfront grants, carry-forward and lapse, holidays with optional picks, team calendar, ledger-based balances |
 | Comp-off | Claims for work on weekly offs and holidays, expiring lots, optional payout through payroll |
 | Payroll | Components and formulas, salary structures and revisions with arrears, maker-checker runs, loans and advances, expense claims, payslip PDFs (signed and password protected when configured), public payslip verification by QR code, bank advice |
