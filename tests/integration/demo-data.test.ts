@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   attendanceDays, compOffClaims, employees, expenseClaims, leaveRequests, payrollRuns, payslips, profileChangeRequests, regularizationRequests, timesheets,
 } from "@/server/db/schema";
+import { clockState } from "@/server/modules/attendance/punches";
 import { buildDemo } from "../../scripts/demo-data";
 import { createTestDb } from "../helpers/db";
 
@@ -52,6 +53,10 @@ describe("demo company", () => {
     const absent = demo.db.select().from(attendanceDays).where(and(eq(attendanceDays.employeeId, asha.id), eq(attendanceDays.status, "absent"))).all();
     expect(absent.map((d) => d.date)).toEqual(["2026-10-27"]);
     expect(demo.db.select().from(attendanceDays).where(gte(attendanceDays.date, "2026-10-30")).all()).toEqual([]);
+
+    // Kiran stepped out ten minutes ago, so Ravi's Today board has someone on a break.
+    const kiran = demo.db.select().from(employees).where(eq(employees.firstName, "Kiran")).get()!;
+    expect(clockState(demo.db, kiran.id, new Date("2026-10-29T05:00:00Z"))).toMatchObject({ onBreak: true, workMode: "remote" });
   }, 60_000);
 
   it("copes with a weekend at the start of a leave year and of a financial year", async () => {

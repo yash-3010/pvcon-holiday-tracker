@@ -267,7 +267,14 @@ export async function buildDemo(db: DB, { now, uploadDir, payslipEnv }: { now: D
     for (const p of current) {
       if (["Asha", "Arjun", "Meera"].includes(p.key) || p.joined > today) continue;
       const inMin = 8 * 60 + 52 + Math.floor(rand() * 30);
-      if (inMin < nowMinutes) punch(p.key, today, inMin, null, ["ENG", "CONS"].includes(p.dept) && !p.roles.includes("manager") ? "remote" : "office");
+      const mode = ["ENG", "CONS"].includes(p.dept) && !p.roles.includes("manager") ? "remote" : "office";
+      if (inMin < nowMinutes) punch(p.key, today, inMin, null, mode);
+      // Kiran stepped out ten minutes ago, so Ravi's Today board has someone on a break.
+      if (p.key === "Kiran" && nowMinutes - 10 >= inMin + 45) {
+        db.insert(attendancePunches)
+          .values({ employeeId: emp.Kiran!.id, at: zonedInstant(today, nowMinutes - 10, tz).toISOString(), date: today, direction: "out", workMode: mode, startsBreak: true })
+          .run();
+      }
     }
   }
   for (const e of Object.values(emp)) recomputeAttendance(db, e.id, historyStart, yesterday, { now });
