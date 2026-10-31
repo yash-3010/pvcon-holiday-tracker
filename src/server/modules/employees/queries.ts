@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { Role } from "@/lib/auth/permissions";
 import type {
@@ -277,7 +277,8 @@ export interface EmployeeEventView {
   createdAt: string;
 }
 
-export function listEmployeeEvents(db: DbLike, employeeId: number): EmployeeEventView[] {
+/** An employee's history, newest first. Salary revisions carry pay, so only people who may see salaries get them. */
+export function listEmployeeEvents(db: DbLike, employeeId: number, { includeSalary }: { includeSalary: boolean }): EmployeeEventView[] {
   return db
     .select({
       id: employeeEvents.id,
@@ -291,7 +292,7 @@ export function listEmployeeEvents(db: DbLike, employeeId: number): EmployeeEven
     })
     .from(employeeEvents)
     .leftJoin(users, eq(users.id, employeeEvents.createdBy))
-    .where(eq(employeeEvents.employeeId, employeeId))
+    .where(and(eq(employeeEvents.employeeId, employeeId), includeSalary ? undefined : ne(employeeEvents.type, "salary_revised")))
     .orderBy(desc(employeeEvents.effectiveDate), desc(employeeEvents.id))
     .all();
 }

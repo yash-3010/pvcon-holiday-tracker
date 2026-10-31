@@ -35,11 +35,13 @@ If the code or a plan refines the spec (e.g. an extra permission), note the refi
 ## Commands
 
 ```bash
-npm run dev            # dev server on :3000 (DB_FILE defaults to ./data/people.db)
+npm run dev            # dev server on :3000 (DB_FILE defaults to ./data/people.db); predev applies pending migrations
 npm run db:generate    # drizzle-kit generate after schema edits (never hand-write migration SQL)
 npm run db:migrate     # apply migrations (refuses to touch a legacy holiday-tracker DB)
 npm run db:seed        # idempotent seed (super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
 npm run db:reset       # delete ./data/people.db* then migrate + seed (dev only)
+npm run db:demo        # demo company in ./data/demo.db (scripts/demo-data.ts), dates relative to today
+npm run dev:demo       # dev server against ./data/demo.db (migrated first), no emails; every demo login's password is Demo-Pass-123
 npm run db:migrate-legacy -- --from data/legacy/app.db --to data/people-new.db   # old tracker → new DB, verified
 npm test               # vitest unit + integration
 npm run test:e2e       # playwright (starts its own dev server on :3100 with ./data/e2e.db)
@@ -123,6 +125,15 @@ pino · nodemailer · papaparse · vitest · Playwright (with @axe-core/playwrig
   - A row is (project, task category); saving replaces the week's entries. Only `draft` and `rejected` weeks change.
   - Who may log to a project comes from `allowedProjects()`; available hours from `workCalendar()` /
     `availableMinutes()`, never from the shift or leave tables directly.
+- **Work clock** (`src/server/modules/clock/`, roadmap refinement 84)
+  - One clock drives attendance and the timesheet. Clocking in punches in and logs to a project and task. A break is
+    an out punch with `starts_break`; the next in resumes. Worked time comes from `dayClock` (`src/lib/clock.ts`).
+  - Clock changes go through `startWork` / `takeBreak` / `resumeWork` / `switchTask` / `endWork` only, never through
+    raw punches or timers. Each piece of time lands in its timesheet cell through `stopEmployeeTimer`.
+  - Attendance always succeeds. When the timesheet can't take time, the clock reports it as `notices` rather than
+    refusing.
+  - Every clock action returns a fresh `clockSnapshot`, and the client (`src/components/clock/`) counts on from it. A
+    week save sends the grid's `version`, so clock time is never overwritten.
 - **Payroll**
   - Amounts are paise; formulas work in rupees (`src/lib/payroll/formula/*`, a hand-written parser with whitelisted
     names and functions). `calculatePayslip` (`src/lib/payroll/calculate.ts`) is pure and also runs in the browser

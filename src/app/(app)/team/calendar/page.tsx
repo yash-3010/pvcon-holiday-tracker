@@ -74,7 +74,7 @@ export default async function TeamCalendarPage({ searchParams }: { searchParams:
         />
       ) : (
         <div className="space-y-3">
-          <CalendarGrid calendar={calendar} todayDate={today} />
+          <CalendarGrid calendar={calendar} todayDate={today} canApprove={can(user, "leave.approve")} />
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
             {types.map((t) => (
               <span key={t.id} className="inline-flex items-center gap-1.5">
@@ -93,7 +93,7 @@ export default async function TeamCalendarPage({ searchParams }: { searchParams:
             <span className="inline-flex items-center gap-1.5">
               <span className="size-3 rounded-sm bg-muted" /> Weekly off
             </span>
-            <span>A half-filled day is a half day.</span>
+            <span>A half-filled day is a half day. Click a marked day for its details.</span>
           </div>
         </div>
       )}

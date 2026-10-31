@@ -309,6 +309,42 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
       - exceljs's uuid 8: the bug is in v3/v5/v6 with a caller's buffer, and exceljs only calls `v4()`;
       - drizzle-kit's esbuild 0.18: the bug is in esbuild's dev server, and drizzle-kit's loader only calls
         `transformSync`.
+82. **Payroll projects today too** (spec §5.6 says "days after today"). Today's punch-based status is provisional:
+    someone who has clocked in but not out reads `absent` until they clock out. A run computed during the day would
+    otherwise charge everyone at work a day's loss of pay. Today is projected like the days after it, unless HR has
+    overridden it.
+83. **Salary revisions in an employee's History** show only to people who may see salaries (`salary.view`) and to the
+    employee. The Salary tab was already gated; the History tab showed the same amounts to managers and HR admins.
+84. **One work clock.** The spec has two clocks: attendance punches (§5.2) and a separate timesheet timer (§5.3).
+    Now one clock drives both, so a working day needs no separate timesheet step (`src/server/modules/clock/`).
+    - **Clock in** punches in and logs to a project and task. When nobody chooses one, the clock uses, in order:
+      - the last choice (`clock_selections`);
+      - the row with the most time in their latest timesheet;
+      - their first project with the first task.
+    - **Breaks**
+      - A break is an out punch with `starts_break`. Resume punches in again in the same work mode, on the last task.
+      - Worked time leaves breaks out (`dayClock`, `src/lib/clock.ts`). Clocking out from a break ends the day when
+        the break began.
+      - The Today board shows "On break" and counts it as in.
+    - **Switching task** ends the piece being logged. Each piece goes to its timesheet cell, rounded to a quarter
+      hour, the same way the timer did.
+    - **Kept as before:** the weekly grid stays editable, and submit plus manager approval are unchanged.
+    - **Attendance always goes through.** When the timesheet can't take the time (a submitted week, no project), the
+      clock still runs and says why.
+    - **A clock left running** stops logging at that day's shift end, on `attendance:close-day` or the next clock-in.
+    - **Saving the week grid** sends the version the grid loaded. If the clock added time since then, the save is
+      refused (`TIMESHEET_CHANGED`), so an open grid can't overwrite it.
+    - **What it replaces:** the timer actions and the dashboard clock card.
+    - **Where the clock lives**
+      - The first block on the dashboard and on My attendance.
+      - The top bar on every page.
+      - The browser tab while it runs: the title starts with the time, and the tab icon becomes a dark green
+        record symbol (working) or an amber half circle (break), from `public/icons/clock-*.svg`.
+      - A pop-out window in Chrome and Edge (Document Picture-in-Picture).
+      - The command palette and the installed app's shortcuts.
+      - Other tabs follow through a BroadcastChannel and `GET /api/me/clock`.
+    - **Toasts** use the status tokens, because Sonner's rich colours miss WCAG AA. They open below the top bar, so
+      a toast never covers the clock's buttons just after one is pressed.
 
 ## Cross-phase integration map
 

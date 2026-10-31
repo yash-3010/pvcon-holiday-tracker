@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Fingerprint } from "lucide-react";
-import { ClockCard } from "@/components/attendance/clock-card";
+import { TodayClock } from "@/components/clock/today-clock";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -9,7 +9,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { addMonths, formatMinutes, formatPeriod, isPeriod, todayInTimeZone } from "@/lib/dates";
 import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
-import { clockCardFor } from "@/server/modules/attendance/clock-card";
 import { myAttendanceMonth } from "@/server/modules/attendance/queries";
 import { shiftForEmployee } from "@/server/modules/attendance/shifts";
 import { getSetting } from "@/server/modules/settings/service";
@@ -33,7 +32,6 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
   const month = params.month && isPeriod(params.month) ? params.month : today.slice(0, 7);
   const { days, summary } = myAttendanceMonth(db, user.employeeId, month, now);
   const shift = shiftForEmployee(db, user.employeeId);
-  const clock = clockCardFor(db, user.employeeId, now);
   const tiles = [
     ["Present", summary.present],
     ["Half days", summary.half_day],
@@ -63,9 +61,11 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
           </div>
         }
       />
+      <div className="mb-4">
+        <TodayClock />
+      </div>
       <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
         <div className="space-y-4">
-          <ClockCard key={clock.renderedAt} {...clock} />
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
             {tiles.map(([label, value]) => (
               <Card key={label}>

@@ -6,6 +6,7 @@ import { summarizeDays, type PayrollDay } from "@/lib/payroll/days";
 import type { DbLike } from "@/server/db/client";
 import { attendanceDays, compOffClaims, employees, leaveRequests, leaveTypes, type EmployeeRow } from "@/server/db/schema";
 import { fillMissingAttendance, recomputeAttendance } from "@/server/modules/attendance/compute";
+import { isProvisional } from "@/server/modules/attendance/queries";
 import { shiftForEmployee } from "@/server/modules/attendance/shifts";
 import { holidaysForEmployee } from "@/server/modules/holidays/service";
 import { balancesFor, leaveYearStartMonth } from "@/server/modules/leave/ledger";
@@ -19,8 +20,9 @@ export interface PeriodOptions {
 }
 
 /**
- * Each day of the pay period as payroll sees it (spec §5.6): stored attendance up to today, and after today a
- * projection where leave, holidays and weekly offs apply and other working days count as worked. Bringing attendance up
+ * Each day of the pay period as payroll sees it (spec §5.6): stored attendance up to today, and from today (while its
+ * punches are provisional) a projection where leave, holidays and weekly offs apply and other working days count as
+ * worked. Bringing attendance up
  * to date computes the days without a row and today's provisional one; days already computed keep the shift rules they
  * were computed with, as everywhere else in attendance.
  */
@@ -67,7 +69,10 @@ export function periodDays(db: DbLike, employeeId: number, period: string, { tod
 
   return eachDay(start, end).map((date): PayrollDay => {
     const working = !holidays.has(date) && !shift.weeklyOffs.includes(dayOfWeek(date));
-    const row = rows.get(date);
+    const stored = rows.get(date);
+    // Today's punch-based status is still changing (an employee who has clocked in reads absent until they clock
+    // out), so it's projected like the days after it. An HR override for today is a decision and counts.
+    const row = stored && isProvisional(date, today, stored.status) && !stored.overrideStatus ? undefined : stored;
     const lopLeave = lopOf(date);
     if (row) {
       const otherHalfWorked = row.status === "half_leave" && punchMode ? row.workedMinutes >= shift.halfDayMinutes : null;
@@ -75,7 +80,7 @@ export function periodDays(db: DbLike, employeeId: number, period: string, { tod
     }
     if (date < employee.dateOfJoining) return { date, status: "not_joined", working, lopLeave: 0, otherHalfWorked: null };
     if (employee.lastWorkingDate && date > employee.lastWorkingDate) return { date, status: "exited", working, lopLeave: 0, otherHalfWorked: null };
-    // Not computed yet (after today): project it.
+    // Not computed yet (after today) or still provisional (today): project it.
     const portions = leave.get(date) ?? [];
     const leaveDays = portions.reduce((s, p) => s + (p.portion === "full" ? 1 : 0.5), 0);
     let status: PayrollDay["status"];

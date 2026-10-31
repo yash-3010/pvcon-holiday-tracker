@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { can } from "@/lib/auth/permissions";
-import { addDays, startOfWeek, type ISODate } from "@/lib/dates";
+import { addDays, dateInTimeZone, startOfWeek, type ISODate } from "@/lib/dates";
 import { EDITABLE_STATUSES, utilization, weekDates, type TimesheetStatus } from "@/lib/timesheets";
 import type { DbLike } from "@/server/db/client";
 import {
@@ -9,6 +9,7 @@ import {
 import { clockState } from "@/server/modules/attendance/punches";
 import { shiftForEmployee } from "@/server/modules/attendance/shifts";
 import type { ScopeUser } from "@/server/modules/employees/scope";
+import { getSetting } from "@/server/modules/settings/service";
 import { workCalendar, type WorkDay } from "./availability";
 import { allowedProjects, canDecideTimesheet } from "./service";
 import { runningTimer } from "./timer";
@@ -106,6 +107,8 @@ export interface WeekRow {
 export interface WeekDetail {
   weekStart: ISODate;
   timesheetId: number | null;
+  /** The week's `updated_at`, sent back when saving so a stale grid can't overwrite the clock's time. */
+  version: string | null;
   status: TimesheetStatus;
   /** Draft or rejected, and not a future week. */
   editable: boolean;
@@ -182,7 +185,9 @@ export function weekDetail(db: DbLike, employeeId: number, weekStart: ISODate, {
   const decidedBy = timesheet?.approverId
     ? (db.select({ name: users.name }).from(users).where(eq(users.id, timesheet.approverId)).get()?.name ?? null)
     : null;
-  const timerRow = runningTimer(db, employeeId);
+  // The clock's note belongs on the week its time lands in: the day the running piece started.
+  const running = runningTimer(db, employeeId);
+  const timerRow = running && dates.includes(dateInTimeZone(new Date(running.startedAt), getSetting(db, "locale").timezone)) ? running : undefined;
   const timerNames = timerRow
     ? db
         .select({ projectCode: projects.code, projectName: projects.name, categoryName: taskCategories.name })
@@ -217,6 +222,7 @@ export function weekDetail(db: DbLike, employeeId: number, weekStart: ISODate, {
   return {
     weekStart,
     timesheetId: timesheet?.id ?? null,
+    version: timesheet?.updatedAt ?? null,
     status,
     editable: EDITABLE_STATUSES.includes(status) && weekStart <= startOfWeek(today),
     submittedAt: timesheet?.submittedAt ?? null,

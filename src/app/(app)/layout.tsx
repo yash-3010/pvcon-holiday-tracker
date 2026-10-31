@@ -3,6 +3,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { inlineFileUrl } from "@/lib/files";
 import { requireUser } from "@/server/auth/session";
 import { db } from "@/server/db";
+import { clockSnapshot } from "@/server/modules/clock/queries";
 import { employeePhotoFileId } from "@/server/modules/employees/queries";
 import { listNotifications, unreadCount } from "@/server/modules/notifications/service";
 
@@ -21,6 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       }}
       unreadCount={unreadCount(db, user.id)}
       recentNotifications={recent}
+      clock={user.employeeId === null ? null : clockSnapshot(db, user.employeeId, new Date())}
     >
       {children}
     </AppShell>

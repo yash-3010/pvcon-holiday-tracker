@@ -1,3 +1,8 @@
+"use client";
+
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/dates";
 import { LEAVE_HALF_LABELS } from "@/lib/leave";
@@ -25,7 +30,38 @@ function LeaveMark({ cell }: { cell: Extract<CalendarCell, { kind: "leave" }> })
   );
 }
 
-export function CalendarGrid({ calendar, todayDate }: { calendar: TeamCalendar; todayDate: string }) {
+/** What a marked day is, for a click or a tap: the hover title alone never shows on a phone. */
+function CellDetails({ cell, name, date, canApprove }: { cell: CalendarCell; name: string; date: string; canApprove: boolean }) {
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="font-medium">{name}</p>
+        <p className="text-xs text-muted-foreground">{formatDate(date, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+      </div>
+      {cell.kind === "holiday" ? (
+        <p>{cell.name}: an optional holiday they picked.</p>
+      ) : (
+        <>
+          <p className="flex items-center gap-2">
+            <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: cell.color ?? "var(--color-muted-foreground)" }} />
+            {cell.name}
+            {cell.portion !== "full" && <span className="text-muted-foreground">· {LEAVE_HALF_LABELS[cell.portion].toLowerCase()}</span>}
+          </p>
+          <Badge variant={cell.status === "approved" ? "success" : "warning"}>{cell.status === "approved" ? "Approved" : "Waiting for approval"}</Badge>
+          {cell.status === "pending" && canApprove && (
+            <p>
+              <Link href="/approvals?tab=leave" className="text-primary underline underline-offset-2">
+                Open approvals
+              </Link>
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+export function CalendarGrid({ calendar, todayDate, canApprove }: { calendar: TeamCalendar; todayDate: string; canApprove: boolean }) {
   return (
     <div className="overflow-x-auto rounded-xl border bg-card">
       <table className="w-full border-collapse text-xs">
@@ -64,11 +100,22 @@ export function CalendarGrid({ calendar, todayDate }: { calendar: TeamCalendar; 
                     title={cell ? cellTitle(cell, row.employee.name, d.date) : undefined}
                     className={cn("relative h-10 border-b p-0", (off || d.holiday) && "bg-muted/60", d.holiday && "bg-warning/15")}
                   >
-                    {cell?.kind === "leave" && <LeaveMark cell={cell} />}
-                    {cell?.kind === "holiday" && (
-                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-warning">H</span>
+                    {cell && (
+                      <Popover>
+                        <PopoverTrigger
+                          aria-label={cellTitle(cell, row.employee.name, d.date)}
+                          className="absolute inset-0 cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {cell.kind === "leave" && <LeaveMark cell={cell} />}
+                          {cell.kind === "holiday" && (
+                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-warning">H</span>
+                          )}
+                        </PopoverTrigger>
+                        <PopoverContent>
+                          <CellDetails cell={cell} name={row.employee.name} date={d.date} canApprove={canApprove} />
+                        </PopoverContent>
+                      </Popover>
                     )}
-                    {cell?.kind === "leave" && <span className="sr-only">{cellTitle(cell, row.employee.name, d.date)}</span>}
                   </td>
                 );
               })}

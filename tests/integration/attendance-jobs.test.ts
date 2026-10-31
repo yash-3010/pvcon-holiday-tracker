@@ -1,10 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { DB } from "@/server/db/client";
-import { attendanceDays, attendancePunches, notifications } from "@/server/db/schema";
+import { attendanceDays, attendancePunches, notifications, runningTimers, timesheetEntries } from "@/server/db/schema";
 import { runJobByName } from "@/server/jobs/registry";
 import { seedDefaultShift } from "@/server/modules/attendance/shifts";
+import { listCategories } from "@/server/modules/projects/queries";
+import { seedTimesheetDefaults } from "@/server/modules/projects/service";
 import { patchSetting } from "@/server/modules/settings/service";
+import { allowedProjects } from "@/server/modules/timesheets/service";
 import { createTestDb } from "../helpers/db";
 import { insertEmployee } from "../helpers/employees";
 import { insertUser } from "../helpers/fixtures";
@@ -45,6 +48,18 @@ describe("attendance:close-day", () => {
     expect(prompts.map((n) => n.userId).sort()).toEqual([asha.userId, ravi.userId].sort());
     expect(prompts[0]!.link).toBe("/me/attendance?month=2026-11");
     expect(runJobByName(db, "attendance:close-day", AT).status).toBe("skipped");
+  });
+
+  it("stops a timesheet timer nobody stopped at the shift's end", () => {
+    seedTimesheetDefaults(db);
+    const asha = insertEmployee(db, { dateOfJoining: "2025-01-01", userId: insertUser(db).id });
+    const internal = allowedProjects(db, asha.id, "2026-11-07")[0]!;
+    punch(asha.id, "2026-11-07T04:30:00.000Z", "in");
+    db.insert(runningTimers).values({ employeeId: asha.id, projectId: internal.id, taskCategoryId: listCategories(db, {})[0]!.id, startedAt: "2026-11-07T04:30:00.000Z" }).run();
+    runJobByName(db, "attendance:close-day", AT);
+    // 10:00 to the shift's 18:30 end, not to the 23:30 automatic clock-out.
+    expect(db.select().from(timesheetEntries).all().map((e) => [e.date, e.minutes])).toEqual([["2026-11-07", 510]]);
+    expect(db.select().from(runningTimers).all()).toEqual([]);
   });
 
   it("fills earlier days nobody computed, leaving computed and locked ones alone", () => {

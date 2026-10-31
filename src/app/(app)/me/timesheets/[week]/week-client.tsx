@@ -1,107 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Plus, Save, Send, Square, Trash2, Undo2 } from "lucide-react";
+import { Plus, RotateCcw, Save, Send, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerAction } from "@/components/forms/use-server-action";
 import { parseHours, WeekGrid, type GridRow } from "@/components/timesheets/week-grid";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
-import { formatDateTime, formatMinutes, type ISODate } from "@/lib/dates";
+import { formatDateTime, type ISODate } from "@/lib/dates";
 import { formatHours } from "@/lib/timesheets";
 import type { WeekDetail } from "@/server/modules/timesheets/queries";
-import {
-  discardTimerAction, saveWeekAction, startTimerAction, stopTimerAction, submitWeekAction, withdrawWeekAction,
-} from "../actions";
+import { saveWeekAction, submitWeekAction, withdrawWeekAction } from "../actions";
 
-type Options = WeekDetail["options"];
-
-function TimerBar({
-  timer, options, canStart, dirty, timeZone, renderedAt,
-}: {
-  timer: WeekDetail["timer"];
-  options: Options;
-  canStart: boolean;
-  dirty: boolean;
-  timeZone: string;
-  renderedAt: number;
-}) {
-  const router = useRouter();
-  const [projectId, setProjectId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [notes, setNotes] = useState("");
-  const [now, setNow] = useState(renderedAt);
-  useEffect(() => {
-    if (!timer) return;
-    const t = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(t);
-  }, [timer]);
-  const refresh = () => router.refresh();
-  const start = useServerAction(startTimerAction, { successMessage: "Timer started", onSuccess: refresh });
-  const stop = useServerAction(stopTimerAction, {
-    successMessage: (d) => (d.minutes ? `Added ${formatHours(d.minutes)} h` : "Under 8 minutes: nothing added"),
-    onSuccess: refresh,
-  });
-  const discard = useServerAction(discardTimerAction, { successMessage: "Timer discarded", onSuccess: refresh });
-
-  if (timer) {
-    const since = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone }).format(new Date(timer.startedAt));
-    const elapsed = Math.max(0, Math.floor((now - Date.parse(timer.startedAt)) / 60_000));
-    return (
-      <Card data-testid="timer">
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-          <div className="text-sm">
-            <span className="mr-2 inline-block size-2 animate-pulse rounded-full bg-destructive" aria-hidden />
-            Timing <span className="font-medium">{timer.projectCode}</span> · {timer.categoryName} since {since}
-            <span className="ml-2 font-medium tabular-nums">{formatMinutes(elapsed)}</span>
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={discard.pending} onClick={() => discard.run({})}>
-              <Trash2 /> Discard
-            </Button>
-            <Button size="sm" disabled={stop.pending || dirty} title={dirty ? "Save your changes first" : undefined} onClick={() => stop.run({})}>
-              {stop.pending ? <Spinner /> : <Square />} Stop
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-  if (!canStart) return null;
+/** The clock (top bar) logs time into this grid; while it runs, this says where. */
+function ClockNote({ timer, timeZone }: { timer: WeekDetail["timer"]; timeZone: string }) {
+  if (!timer) return null;
+  const since = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone }).format(new Date(timer.startedAt));
   return (
-    <Card>
-      <CardContent className="flex flex-wrap items-center gap-2 p-4">
-        <NativeSelect aria-label="Timer project" value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-56">
-          <option value="">Project…</option>
-          {options.projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.code} · {p.name}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect aria-label="Timer task" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="w-44">
-          <option value="">Task…</option>
-          {options.categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </NativeSelect>
-        <Input aria-label="Timer note" placeholder="What are you working on?" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-64" maxLength={300} />
-        <Button
-          variant="outline"
-          disabled={!projectId || !categoryId || start.pending}
-          onClick={() => start.run({ projectId: Number(projectId), taskCategoryId: Number(categoryId), notes: notes || null })}
-        >
-          {start.pending ? <Spinner /> : <Play />} Start timer
-        </Button>
-      </CardContent>
-    </Card>
+    <Alert title={`Your clock is logging to ${timer.projectCode} · ${timer.categoryName}`}>
+      Since {since}. Switch task, take a break or clock out from the clock at the top of the page; the time lands here when it stops.
+    </Alert>
   );
 }
 
@@ -112,18 +33,27 @@ const toGridRow = (r: WeekDetail["rows"][number]): GridRow => ({
   hours: Object.fromEntries(Object.entries(r.minutes).map(([d, m]) => [d, formatHours(m)])),
 });
 
-export function WeekEditor({
-  detail, today, isCurrentWeek, timeZone, renderedAt,
-}: {
-  detail: WeekDetail;
-  today: ISODate;
-  isCurrentWeek: boolean;
-  timeZone: string;
-  renderedAt: number;
-}) {
+export function WeekEditor({ detail, today, timeZone }: { detail: WeekDetail; today: ISODate; timeZone: string }) {
   const router = useRouter();
   const [rows, setRows] = useState<GridRow[]>(() => detail.rows.map(toGridRow));
   const [dirty, setDirty] = useState(false);
+  // The week as this grid last loaded it: saving sends it back, so the clock's newer time is never overwritten.
+  const [version, setVersion] = useState(detail.version);
+  const behind = detail.version !== version;
+  const reload = () => {
+    setRows(detail.rows.map(toGridRow));
+    setVersion(detail.version);
+    setDirty(false);
+  };
+  // The clock added time (or another tab saved): show it, unless there are unsaved changes to keep.
+  const [seen, setSeen] = useState(detail.version);
+  if (detail.version !== seen) {
+    setSeen(detail.version);
+    if (!dirty) {
+      setRows(detail.rows.map(toGridRow));
+      setVersion(detail.version);
+    }
+  }
   const [projectId, setProjectId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const editable = detail.editable;
@@ -153,6 +83,7 @@ export function WeekEditor({
   const invalid = rows.some((r) => Object.values(r.hours).some((h) => parseHours(h) === null));
   const input = {
     weekStart: detail.weekStart,
+    version,
     rows: rows.map((r) => {
       const [projectIdPart, categoryIdPart] = r.key.split(":");
       return {
@@ -165,6 +96,7 @@ export function WeekEditor({
     successMessage: "Timesheet saved",
     onSuccess: (d) => {
       for (const w of d.warnings) toast.warning(w);
+      setVersion(d.version);
       setDirty(false);
       router.refresh();
     },
@@ -190,14 +122,15 @@ export function WeekEditor({
           {detail.decision.note ?? formatDateTime(detail.decision.at, timeZone)}
         </Alert>
       )}
-      <TimerBar
-        timer={detail.timer}
-        options={detail.options}
-        canStart={editable && isCurrentWeek}
-        dirty={dirty}
-        timeZone={timeZone}
-        renderedAt={renderedAt}
-      />
+      {behind && dirty && (
+        <Alert variant="warning" title="This week changed while you were editing">
+          <p>Your clock added time (or you saved in another tab). Saving now would undo that, so reload the week and make your changes again.</p>
+          <Button size="sm" variant="outline" className="mt-2" onClick={reload}>
+            <RotateCcw /> Reload the week
+          </Button>
+        </Alert>
+      )}
+      <ClockNote timer={detail.timer} timeZone={timeZone} />
       <WeekGrid
         days={detail.days}
         rows={rows}

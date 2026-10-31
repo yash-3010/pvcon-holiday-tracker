@@ -1,14 +1,8 @@
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatDate, isISODate } from "@/lib/dates";
+import { formatDate } from "@/lib/dates";
 import { EMPLOYEE_EVENT_LABELS, type EventValues } from "@/lib/hr";
+import { eventFieldLabel, formatEventValue } from "@/lib/hr-events";
 import type { EmployeeEventView } from "@/server/modules/employees/queries";
-
-const humanize = (key: string) => key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
-
-function display(value: string | number | null | undefined): string {
-  if (value === null || value === undefined || value === "") return "—";
-  return typeof value === "string" && isISODate(value) ? formatDate(value) : String(value);
-}
 
 function Changes({ from, to }: { from: EventValues | null; to: EventValues | null }) {
   const keys = [...new Set([...Object.keys(from ?? {}), ...Object.keys(to ?? {})])];
@@ -17,8 +11,9 @@ function Changes({ from, to }: { from: EventValues | null; to: EventValues | nul
     <ul className="mt-1 space-y-0.5 text-sm">
       {keys.map((key) => (
         <li key={key}>
-          <span className="text-muted-foreground">{humanize(key)}:</span> {from && key in from ? `${display(from[key])} → ` : ""}
-          {display(to?.[key])}
+          <span className="text-muted-foreground">{eventFieldLabel(key)}:</span>{" "}
+          {from && key in from ? `${formatEventValue(key, from[key])} → ` : ""}
+          {formatEventValue(key, to?.[key])}
         </li>
       ))}
     </ul>

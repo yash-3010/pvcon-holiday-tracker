@@ -91,7 +91,7 @@ describe("week detail", () => {
     expect(week.options.categories.length).toBeGreaterThan(5);
   });
 
-  it("shows no attendance reference on an auto-mode shift, and today's timer", () => {
+  it("shows no attendance reference on an auto-mode shift, and today's timer on this week only", () => {
     const auto = createShift(db, {
       name: "Auto", startTime: "09:30", endTime: "18:30", breakMinutes: 60, graceMinutes: 15, halfDayMinutes: 240, fullDayMinutes: 480,
       weeklyOffs: [0, 6], attendanceMode: "auto", autoClockOutTime: null,
@@ -101,6 +101,8 @@ describe("week detail", () => {
     startTimer(db, kiran.user, { projectId: internal.id, taskCategoryId: listCategories(db, {})[0]!.id, notes: null }, { now: NOW });
     expect(weekDetail(db, kiran.employee.id, LAST, { today: TODAY, now: NOW }).days.every((d) => d.workedMinutes === null)).toBe(true);
     expect(weekDetail(db, kiran.employee.id, THIS, { today: TODAY, now: NOW }).timer).toMatchObject({ projectCode: "INT", startedAt: NOW.toISOString() });
+    // Last week's page doesn't say the clock's time lands there.
+    expect(weekDetail(db, kiran.employee.id, LAST, { today: TODAY, now: NOW }).timer).toBeNull();
   });
 });
 

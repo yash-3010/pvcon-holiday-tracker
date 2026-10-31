@@ -203,7 +203,7 @@ sudo touch /var/log/pvcon-jobs.log && sudo chown ubuntu:ubuntu /var/log/pvcon-jo
 | Job | What it does |
 |---|---|
 | `notifications:send` | Publishes scheduled announcements and emails notifications not yet sent |
-| `attendance:close-day` | Closes yesterday: auto clock-out, computes everyone's attendance, invites comp-off claims |
+| `attendance:close-day` | Closes yesterday: auto clock-out, stops clocks left logging to a timesheet at the shift end, computes everyone's attendance, invites comp-off claims |
 | `employee:lifecycle` | Marks people past their last working day as exited, and reminds HR about probations ending |
 | `compoff:expire` | Lapses expired comp-off, and warns a week before expiry |
 | `leave:year-end` | Once a leave year: carries forward up to each type's cap, lapses the rest, and grants the new year |

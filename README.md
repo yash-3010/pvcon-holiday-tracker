@@ -6,8 +6,8 @@ with a full HRMS. Staff use it in the browser or install it as an app from the b
 | Area | What it covers |
 |---|---|
 | Core HR | Employee records (bank and ID numbers encrypted), departments, designations, reporting lines, org chart, directory, documents, CSV import, onboarding and exit checklists, profile change requests |
-| Attendance | Web clock-in (office or remote), shifts with grace and half-day rules, daily close, muster roll, corrections (regularization), overrides, locking once payroll is approved |
-| Timesheets | Weekly grid by project and task category, timer, submit and approve, clients and projects with budgets |
+| Attendance | One work clock in the top bar and on the dashboard (office or remote, breaks, a pop-out window), shifts with grace and half-day rules, daily close, muster roll, corrections (regularization), overrides, locking once payroll is approved |
+| Timesheets | Filled by the work clock as people work, weekly grid by project and task category to review and adjust, submit and approve, clients and projects with budgets |
 | Leave | Configurable types, accrual or upfront grants, carry-forward and lapse, holidays with optional picks, team calendar, ledger-based balances |
 | Comp-off | Claims for work on weekly offs and holidays, expiring lots, optional payout through payroll |
 | Payroll | Components and formulas, salary structures and revisions with arrears, maker-checker runs, loans and advances, expense claims, payslip PDFs (signed and password protected when configured), public payslip verification by QR code, bank advice |
@@ -48,6 +48,18 @@ npm run dev            # http://localhost:3000
 Email is optional: without `SMTP_*` settings, emails are skipped and logged. Jobs can be run by hand under
 Settings → Jobs.
 
+To try every role with realistic data, build the demo company in its own database (`data/demo.db`; `people.db` is
+never touched) and run the app against it:
+
+```bash
+npm run db:demo        # 13 people, three months of history, something waiting in every inbox (Node 22.15+)
+npm run dev:demo       # http://localhost:3000, no emails sent
+```
+
+Every demo login uses the password `Demo-Pass-123`: `admin@`, `hema@` (HR and payroll), `arjun@` (director), `ravi@`
+and `neha@` (managers), `asha@`, `kiran@`, `rohan@` and `priya@` (employees), all `@pvcon.in`. The command prints
+what's waiting for whom, with dates; the dates follow today, so run it again for a fresh start.
+
 To try the migration from the old Holiday Tracker, copy its database to `data/legacy/app.db`. Then:
 
 ```bash
@@ -60,12 +72,13 @@ It never modifies the old file and verifies every leave balance against the old 
 
 | Command | Does |
 |---|---|
-| `npm run dev` | Dev server on port 3000 (`DB_FILE` defaults to `./data/people.db`) |
+| `npm run dev` | Dev server on port 3000 (`DB_FILE` defaults to `./data/people.db`). Applies pending migrations first. |
 | `npm run build` / `npm run start` | Production build and server |
 | `npm run db:generate -- --name <change>` | Generate a migration after a schema change (never hand-write migration SQL) |
 | `npm run db:migrate` | Apply migrations (refuses to touch a Holiday Tracker database) |
 | `npm run db:seed` | Idempotent defaults and the first super admin |
 | `npm run db:reset` | Delete `./data/people.db*`, migrate and seed (development only) |
+| `npm run db:demo` / `npm run dev:demo` | Build the demo company in `./data/demo.db` / run the dev server against it (pending migrations first) |
 | `npm run db:migrate-legacy -- --from <old> --to <new>` | Build a new database from the Holiday Tracker's, verified |
 | `npm test` | Unit and integration tests (Vitest) |
 | `npm run test:e2e` | End-to-end tests (Playwright). They start their own server on port 3100 with `./data/e2e.db`, so stop `npm run dev` first. |

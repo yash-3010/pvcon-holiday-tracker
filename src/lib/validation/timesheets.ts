@@ -67,7 +67,12 @@ export const weekRowSchema = z.object({
 export type WeekRowInput = z.output<typeof weekRowSchema>;
 
 export const weekSaveSchema = z
-  .object({ weekStart, rows: z.array(weekRowSchema).max(60, "At most 60 rows") })
+  .object({
+    weekStart,
+    rows: z.array(weekRowSchema).max(60, "At most 60 rows"),
+    /** The week's `updated_at` when the grid was opened (null: no timesheet yet); a later change refuses the save. */
+    version: z.string().max(40).nullable().optional(),
+  })
   .superRefine((week, ctx) => {
     if (!isWeekStart(week.weekStart)) return;
     const days = new Set(weekDates(week.weekStart));

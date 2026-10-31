@@ -326,7 +326,7 @@ export default async function EmployeeProfilePage({
         <TabsContent value="history">
           <Card>
             <CardContent className="pt-5">
-              <EventsTimeline events={listEmployeeEvents(db, id)} />
+              <EventsTimeline events={listEmployeeEvents(db, id, { includeSalary: isSelf || can(user, "salary.view") })} />
             </CardContent>
           </Card>
         </TabsContent>

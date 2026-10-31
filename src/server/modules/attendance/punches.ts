@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, lte } from "drizzle-orm";
-import { pairPunches, type PunchSource, type WorkMode } from "@/lib/attendance";
-import { addDays, dateInTimeZone, minutesInZone, parseHm, zonedInstant, type ISODate } from "@/lib/dates";
+import type { PunchSource, WorkMode } from "@/lib/attendance";
+import { dayClock, type DayClock } from "@/lib/clock";
+import { addDays, dateInTimeZone, parseHm, zonedInstant, type ISODate } from "@/lib/dates";
 import type { DbLike } from "@/server/db/client";
 import { attendancePunches, employees, type AttendancePunchRow } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
@@ -10,11 +11,16 @@ import { shiftForEmployee } from "./shifts";
 
 export interface ClockState {
   state: "in" | "out";
+  /** Out on a break rather than done for the day. */
+  onBreak: boolean;
   /** When the open session started (UTC ISO). */
   since: string | null;
+  /** The current session's work mode, or on a break the last one. */
   workMode: WorkMode | null;
   todayWorkedMinutes: number;
   date: ISODate;
+  /** Today's full reading, to the second, for the live clock. */
+  day: DayClock;
 }
 
 const timeZoneOf = (db: DbLike) => getSetting(db, "locale").timezone;
@@ -29,19 +35,24 @@ function lastPunch(db: DbLike, employeeId: number): AttendancePunchRow | undefin
 }
 
 export function clockState(db: DbLike, employeeId: number, now: Date): ClockState {
-  const timeZone = timeZoneOf(db);
-  const date = dateInTimeZone(now, timeZone);
+  const date = dateInTimeZone(now, timeZoneOf(db));
   const today = db
     .select()
     .from(attendancePunches)
     .where(and(eq(attendancePunches.employeeId, employeeId), eq(attendancePunches.date, date)))
+    .orderBy(attendancePunches.at, attendancePunches.id)
     .all();
-  const sessions = pairPunches(today.map((p) => ({ minutes: minutesInZone(new Date(p.at), timeZone), direction: p.direction })));
-  const nowMinutes = minutesInZone(now, timeZone);
-  const worked = sessions.reduce((sum, s) => sum + Math.max(0, (s.outMinutes ?? nowMinutes) - s.inMinutes), 0);
-  const last = lastPunch(db, employeeId);
-  const open = last?.direction === "in" && last.date === date;
-  return { state: open ? "in" : "out", since: open ? last.at : null, workMode: open ? last.workMode : null, todayWorkedMinutes: worked, date };
+  const day = dayClock(today, now);
+  const last = today.at(-1);
+  return {
+    state: day.state === "working" ? "in" : "out",
+    onBreak: day.state === "break",
+    since: day.sessionStartedAt,
+    workMode: day.state === "working" || day.state === "break" ? (last?.workMode ?? null) : null,
+    todayWorkedMinutes: Math.floor(day.workedSeconds / 60),
+    date,
+    day,
+  };
 }
 
 /** Closes an open session on its own date at the shift's auto clock-out time (or the shift end). */
@@ -95,7 +106,8 @@ export function clockIn(db: DbLike, employeeId: number, opts: PunchOptions & { w
   return row;
 }
 
-export function clockOut(db: DbLike, employeeId: number, opts: PunchOptions): AttendancePunchRow {
+/** `startsBreak` marks the out as the start of a break: the day goes on, and the next clock-in resumes it. */
+export function clockOut(db: DbLike, employeeId: number, opts: PunchOptions & { startsBreak?: boolean }): AttendancePunchRow {
   const timeZone = timeZoneOf(db);
   const date = dateInTimeZone(opts.now, timeZone);
   const last = lastPunch(db, employeeId);
@@ -104,7 +116,7 @@ export function clockOut(db: DbLike, employeeId: number, opts: PunchOptions): At
     .insert(attendancePunches)
     .values({
       employeeId, at: opts.now.toISOString(), date, direction: "out", workMode: last.workMode, source: opts.source ?? "web",
-      ip: opts.ip, createdBy: opts.createdBy ?? null,
+      startsBreak: opts.startsBreak ?? false, ip: opts.ip, createdBy: opts.createdBy ?? null,
     })
     .returning()
     .get();
