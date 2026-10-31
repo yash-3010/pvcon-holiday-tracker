@@ -64,14 +64,8 @@ export default async function TimesheetWeekPage({ params }: { params: Promise<{ 
         }
       />
       {/* Remount when the stored week changes, so the grid starts from what was saved. */}
-      <WeekEditor
-        key={`${detail.status}:${JSON.stringify(detail.rows)}:${detail.timer?.startedAt ?? ""}`}
-        detail={detail}
-        today={today}
-        isCurrentWeek={monday === current}
-        timeZone={timeZone}
-        renderedAt={now.getTime()}
-      />
+      {/* A new status remounts the grid; new rows (the clock's time) sync in place, keeping unsaved edits. */}
+      <WeekEditor key={detail.status} detail={detail} today={today} timeZone={timeZone} />
     </>
   );
 }

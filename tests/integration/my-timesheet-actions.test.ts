@@ -22,7 +22,7 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
 import {
-  discardTimerAction, saveWeekAction, startTimerAction, stopTimerAction, submitWeekAction, withdrawWeekAction,
+  saveWeekAction, submitWeekAction, withdrawWeekAction,
 } from "@/app/(app)/me/timesheets/actions";
 
 const WEEK = "2026-10-19";
@@ -49,7 +49,9 @@ afterEach(() => vi.useRealTimers());
 
 describe("my timesheet actions", () => {
   it("saves, submits (saving first) and withdraws a week", async () => {
-    await expect(saveWeekAction({ weekStart: WEEK, rows: rows({ "2026-10-19": 480 }) })).resolves.toEqual({ ok: true, data: { status: "draft", warnings: [] } });
+    await expect(saveWeekAction({ weekStart: WEEK, rows: rows({ "2026-10-19": 480 }) })).resolves.toEqual({
+      ok: true, data: { status: "draft", warnings: [], version: expect.any(String) },
+    });
     await expect(submitWeekAction({ weekStart: WEEK, rows: rows({ "2026-10-19": 480, "2026-10-20": 450 }) })).resolves.toEqual({
       ok: true, data: { status: "submitted" },
     });
@@ -65,13 +67,12 @@ describe("my timesheet actions", () => {
     expect(state.db.select().from(timesheetEntries).all().map((e) => e.minutes)).toEqual([480]);
   });
 
-  it("runs the timer", async () => {
-    await expect(startTimerAction({ projectId: internal.id, taskCategoryId: dev, notes: "Pairing" })).resolves.toMatchObject({ ok: true });
+  it("refuses to save a grid opened before the week last changed", async () => {
+    const first = await saveWeekAction({ weekStart: WEEK, rows: rows({ "2026-10-19": 480 }), version: null });
+    if (!first.ok) throw new Error(first.error);
     vi.setSystemTime(new Date("2026-10-21T07:00:00Z"));
-    await expect(stopTimerAction({})).resolves.toEqual({ ok: true, data: { minutes: 60, date: "2026-10-21" } });
-    await startTimerAction({ projectId: internal.id, taskCategoryId: dev, notes: null });
-    await expect(discardTimerAction({})).resolves.toEqual({ ok: true, data: {} });
-    expect(audits()).toEqual(["timesheet.timer", "timesheet.timer", "timesheet.timer", "timesheet.timer"]);
+    await expect(saveWeekAction({ weekStart: WEEK, rows: rows({ "2026-10-20": 60 }), version: null })).resolves.toMatchObject({ ok: false, code: "TIMESHEET_CHANGED" });
+    await expect(saveWeekAction({ weekStart: WEEK, rows: rows({ "2026-10-20": 60 }), version: first.data.version })).resolves.toMatchObject({ ok: true });
   });
 
   it("needs an employee record", async () => {

@@ -69,7 +69,7 @@ export function requireOwnEmployee(actor: SessionUser): number {
 export function saveWeek(
   db: DbLike,
   actor: SessionUser,
-  { weekStart, rows }: WeekSaveInput,
+  { weekStart, rows, version }: WeekSaveInput,
   { today }: { today: ISODate },
 ): { timesheet: TimesheetRow; warnings: string[] } {
   const employeeId = requireOwnEmployee(actor);
@@ -77,6 +77,13 @@ export function saveWeek(
   if (weekStart > startOfWeek(today)) throw new DomainError("FUTURE_WEEK", "This week hasn't started yet.");
   const existing = findTimesheet(db, employeeId, weekStart);
   assertEditable(existing);
+  // Saving replaces the week, so a grid opened before the clock (or another tab) changed it would undo that change.
+  if (version !== undefined && (existing?.updatedAt ?? null) !== version) {
+    throw new DomainError(
+      "TIMESHEET_CHANGED",
+      "This week changed since you opened it: your clock may have added time. Reload to see it, then make your changes again.",
+    );
+  }
 
   const kept = existing
     ? db.select().from(timesheetEntries).where(eq(timesheetEntries.timesheetId, existing.id)).all()

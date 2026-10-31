@@ -106,6 +106,8 @@ export interface WeekRow {
 export interface WeekDetail {
   weekStart: ISODate;
   timesheetId: number | null;
+  /** The week's `updated_at`, sent back when saving so a stale grid can't overwrite the clock's time. */
+  version: string | null;
   status: TimesheetStatus;
   /** Draft or rejected, and not a future week. */
   editable: boolean;
@@ -217,6 +219,7 @@ export function weekDetail(db: DbLike, employeeId: number, weekStart: ISODate, {
   return {
     weekStart,
     timesheetId: timesheet?.id ?? null,
+    version: timesheet?.updatedAt ?? null,
     status,
     editable: EDITABLE_STATUSES.includes(status) && weekStart <= startOfWeek(today),
     submittedAt: timesheet?.submittedAt ?? null,

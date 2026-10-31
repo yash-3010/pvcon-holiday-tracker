@@ -5,6 +5,7 @@ import { WEEKDAY_LABELS } from "@/lib/leave";
 import { attendanceDays, employees, users } from "@/server/db/schema";
 import { fillMissingAttendance, recomputeDateForAll } from "@/server/modules/attendance/compute";
 import { autoClockOut } from "@/server/modules/attendance/punches";
+import { endForgottenTimers } from "@/server/modules/clock/service";
 import { compOffThresholds } from "@/server/modules/compoff/service";
 import { notify } from "@/server/modules/notifications/service";
 import { getSetting } from "@/server/modules/settings/service";
@@ -16,11 +17,12 @@ const CATCH_UP_DAYS = 34;
 export const attendanceCloseDayJob: JobDefinition = {
   name: "attendance:close-day",
   description:
-    "Closes yesterday: clocks out anyone still clocked in, computes everyone's attendance (and any of the 34 days before it still missing), and invites people who worked an off day to claim comp-off.",
+    "Closes yesterday: clocks out anyone still clocked in (their timesheet time stops at the shift's end), computes everyone's attendance (and any of the 34 days before it still missing), and invites people who worked an off day to claim comp-off.",
   runKey: (now, timeZone) => addDays(dateInTimeZone(now, timeZone), -1),
   run: (db, now, timeZone) => {
     const yesterday = addDays(dateInTimeZone(now, timeZone), -1);
     const closed = autoClockOut(db, yesterday, now);
+    endForgottenTimers(db, yesterday);
     const computed = recomputeDateForAll(db, yesterday, { now });
     const filled = fillMissingAttendance(db, addDays(yesterday, -CATCH_UP_DAYS), addDays(yesterday, -1), { now });
     let prompts = 0;

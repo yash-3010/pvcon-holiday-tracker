@@ -1,10 +1,11 @@
 import { and, eq, sql } from "drizzle-orm";
+import { nowIso } from "@/server/db/columns";
 import type { SessionUser } from "@/lib/auth/types";
 import { addDays, dateInTimeZone, startOfWeek, zonedInstant, type ISODate } from "@/lib/dates";
 import { DAY_MINUTES, roundTimerMinutes } from "@/lib/timesheets";
 import type { TimerStartInput } from "@/lib/validation/timesheets";
 import type { DbLike } from "@/server/db/client";
-import { runningTimers, taskCategories, timesheetEntries, type RunningTimerRow } from "@/server/db/schema";
+import { runningTimers, taskCategories, timesheetEntries, timesheets, type RunningTimerRow } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { requireProject } from "@/server/modules/projects/service";
 import { getSetting } from "@/server/modules/settings/service";
@@ -34,17 +35,17 @@ export function startTimer(db: DbLike, actor: SessionUser, input: TimerStartInpu
 }
 
 /**
- * Adds the timer's time, rounded to a quarter hour, to its start date's entry: a forgotten timer stops counting at that
- * date's local midnight. Refused when the week has been submitted meanwhile; the timer then stays so it can be discarded.
+ * Adds the employee's running timer, up to `at` and rounded to a quarter hour, to its start date's entry: a timer never
+ * counts past that date's local midnight. Null when no timer runs. Refused when the week has been submitted meanwhile;
+ * the timer then stays so the caller can drop it. Adding time bumps the week's `updated_at`, which an open grid checks.
  */
-export function stopTimer(db: DbLike, actor: SessionUser, { now }: { now: Date }): { minutes: number; date: ISODate } {
-  const employeeId = requireOwnEmployee(actor);
+export function stopEmployeeTimer(db: DbLike, employeeId: number, { at }: { at: Date }): { minutes: number; date: ISODate } | null {
   const timer = runningTimer(db, employeeId);
-  if (!timer) throw new DomainError("NO_TIMER", "No timer is running.");
+  if (!timer) return null;
   const timeZone = timeZoneOf(db);
   const started = new Date(timer.startedAt);
   const date = dateInTimeZone(started, timeZone);
-  const end = Math.min(now.getTime(), zonedInstant(addDays(date, 1), 0, timeZone).getTime());
+  const end = Math.min(at.getTime(), zonedInstant(addDays(date, 1), 0, timeZone).getTime());
   const minutes = roundTimerMinutes(Math.max(0, Math.floor((end - started.getTime()) / 60_000)));
   if (minutes > 0) {
     assertEditable(findTimesheet(db, employeeId, startOfWeek(date)));
@@ -77,13 +78,13 @@ export function stopTimer(db: DbLike, actor: SessionUser, { now }: { now: Date }
         })
         .run();
     }
+    db.update(timesheets).set({ updatedAt: nowIso() }).where(eq(timesheets.id, timesheet.id)).run();
   }
-  db.delete(runningTimers).where(eq(runningTimers.employeeId, employeeId)).run();
+  dropTimer(db, employeeId);
   return { minutes, date };
 }
 
-export function discardTimer(db: DbLike, actor: SessionUser): void {
-  const employeeId = requireOwnEmployee(actor);
-  if (!runningTimer(db, employeeId)) throw new DomainError("NO_TIMER", "No timer is running.");
+/** Throws the timer away without adding its time. */
+export function dropTimer(db: DbLike, employeeId: number): void {
   db.delete(runningTimers).where(eq(runningTimers.employeeId, employeeId)).run();
 }
