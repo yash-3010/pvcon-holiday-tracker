@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "tsx scripts/migrate.ts --existing",
     "dev": "next dev",
+    "predev:demo": "DB_FILE=./data/demo.db tsx scripts/migrate.ts --existing",
     "dev:demo": "DB_FILE=./data/demo.db UPLOAD_DIR=./data/demo-uploads SMTP_HOST= next dev",
     "build": "next build",
     "start": "next start",

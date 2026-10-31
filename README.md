@@ -72,13 +72,13 @@ It never modifies the old file and verifies every leave balance against the old 
 
 | Command | Does |
 |---|---|
-| `npm run dev` | Dev server on port 3000 (`DB_FILE` defaults to `./data/people.db`) |
+| `npm run dev` | Dev server on port 3000 (`DB_FILE` defaults to `./data/people.db`). Applies pending migrations first. |
 | `npm run build` / `npm run start` | Production build and server |
 | `npm run db:generate -- --name <change>` | Generate a migration after a schema change (never hand-write migration SQL) |
 | `npm run db:migrate` | Apply migrations (refuses to touch a Holiday Tracker database) |
 | `npm run db:seed` | Idempotent defaults and the first super admin |
 | `npm run db:reset` | Delete `./data/people.db*`, migrate and seed (development only) |
-| `npm run db:demo` / `npm run dev:demo` | Build the demo company in `./data/demo.db` / run the dev server against it |
+| `npm run db:demo` / `npm run dev:demo` | Build the demo company in `./data/demo.db` / run the dev server against it (pending migrations first) |
 | `npm run db:migrate-legacy -- --from <old> --to <new>` | Build a new database from the Holiday Tracker's, verified |
 | `npm test` | Unit and integration tests (Vitest) |
 | `npm run test:e2e` | End-to-end tests (Playwright). They start their own server on port 3100 with `./data/e2e.db`, so stop `npm run dev` first. |

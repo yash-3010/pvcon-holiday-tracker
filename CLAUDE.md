@@ -35,13 +35,13 @@ If the code or a plan refines the spec (e.g. an extra permission), note the refi
 ## Commands
 
 ```bash
-npm run dev            # dev server on :3000 (DB_FILE defaults to ./data/people.db)
+npm run dev            # dev server on :3000 (DB_FILE defaults to ./data/people.db); predev applies pending migrations
 npm run db:generate    # drizzle-kit generate after schema edits (never hand-write migration SQL)
 npm run db:migrate     # apply migrations (refuses to touch a legacy holiday-tracker DB)
 npm run db:seed        # idempotent seed (super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
 npm run db:reset       # delete ./data/people.db* then migrate + seed (dev only)
 npm run db:demo        # demo company in ./data/demo.db (scripts/demo-data.ts), dates relative to today
-npm run dev:demo       # dev server against ./data/demo.db, no emails; every demo login's password is Demo-Pass-123
+npm run dev:demo       # dev server against ./data/demo.db (migrated first), no emails; every demo login's password is Demo-Pass-123
 npm run db:migrate-legacy -- --from data/legacy/app.db --to data/people-new.db   # old tracker → new DB, verified
 npm test               # vitest unit + integration
 npm run test:e2e       # playwright (starts its own dev server on :3100 with ./data/e2e.db)
