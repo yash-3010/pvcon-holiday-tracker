@@ -342,7 +342,8 @@ Record here any deliberate deviation from, or addition to, the spec so later pha
       - A pop-out window in Chrome and Edge (Document Picture-in-Picture).
       - The command palette and the installed app's shortcuts.
       - Other tabs follow through a BroadcastChannel and `GET /api/me/clock`.
-    - **Toasts** use the status tokens, because Sonner's rich colours miss WCAG AA.
+    - **Toasts** use the status tokens, because Sonner's rich colours miss WCAG AA. They open below the top bar, so
+      a toast never covers the clock's buttons just after one is pressed.
 
 ## Cross-phase integration map
 

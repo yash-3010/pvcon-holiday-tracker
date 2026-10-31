@@ -34,6 +34,9 @@ export function Toaster() {
       richColors
       closeButton
       position="top-right"
+      // Below the sticky top bar (h-14), so a toast never covers the clock's buttons right after one is pressed.
+      offset={{ top: 72 }}
+      mobileOffset={{ top: 64 }}
       style={STATUS_COLOURS}
     />
   );
