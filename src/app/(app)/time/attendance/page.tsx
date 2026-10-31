@@ -18,17 +18,18 @@ export const metadata: Metadata = { title: "Today" };
 
 const STATE: Record<BoardState, { label: string; variant: "success" | "secondary" | "info" | "default" | "destructive" }> = {
   in: { label: "In", variant: "success" },
+  break: { label: "On break", variant: "info" },
   out: { label: "Left", variant: "secondary" },
   not_in: { label: "Not in yet", variant: "destructive" },
   on_leave: { label: "On leave", variant: "info" },
   holiday: { label: "Holiday", variant: "default" },
   weekly_off: { label: "Weekly off", variant: "secondary" },
 };
-const ORDER: BoardState[] = ["in", "out", "not_in", "on_leave", "holiday", "weekly_off"];
+const ORDER: BoardState[] = ["in", "break", "out", "not_in", "on_leave", "holiday", "weekly_off"];
 
 const FILTERS = {
-  in: { label: "In", match: (r: TodayBoardRow) => r.state === "in" },
-  remote: { label: "Remote", match: (r: TodayBoardRow) => r.state === "in" && r.workMode === "remote" },
+  in: { label: "In", match: (r: TodayBoardRow) => r.state === "in" || r.state === "break" },
+  remote: { label: "Remote", match: (r: TodayBoardRow) => (r.state === "in" || r.state === "break") && r.workMode === "remote" },
   late: { label: "Late", match: (r: TodayBoardRow) => r.late },
   onLeave: { label: "On leave", match: (r: TodayBoardRow) => r.state === "on_leave" },
   notIn: { label: "Not in yet", match: (r: TodayBoardRow) => r.state === "not_in" },

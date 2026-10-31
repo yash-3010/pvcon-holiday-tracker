@@ -103,6 +103,23 @@ export const timesheetEntries = sqliteTable(
   ],
 );
 
+/** What each employee last chose to work on: the default when they next clock in, resume or switch (refinement 84). */
+export const clockSelections = sqliteTable("clock_selections", {
+  employeeId: integer("employee_id")
+    .primaryKey()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id),
+  taskCategoryId: integer("task_category_id")
+    .notNull()
+    .references(() => taskCategories.id),
+  notes: text("notes"),
+  updatedAt: text("updated_at").notNull().$defaultFn(nowIso),
+});
+
+export type ClockSelectionRow = typeof clockSelections.$inferSelect;
+
 export const runningTimers = sqliteTable("running_timers", {
   employeeId: integer("employee_id")
     .primaryKey()

@@ -188,7 +188,7 @@ function scopedEmployees(db: DbLike, user: ScopeUser, departmentId?: number) {
     .all();
 }
 
-export type BoardState = "in" | "out" | "on_leave" | "holiday" | "weekly_off" | "not_in";
+export type BoardState = "in" | "break" | "out" | "on_leave" | "holiday" | "weekly_off" | "not_in";
 
 export interface TodayBoardRow {
   employeeId: number;
@@ -236,21 +236,23 @@ export function todayBoard(db: DbLike, user: ScopeUser, now: Date): { rows: Toda
     const weeklyOff = shift.weeklyOffs.includes(dayOfWeek(today));
     let boardState: BoardState;
     if (state.state === "in") boardState = "in";
+    else if (state.onBreak) boardState = "break";
     else if (onLeave.has(p.id)) boardState = "on_leave";
     else if (mine.length > 0) boardState = "out";
     else if (holiday) boardState = "holiday";
     else if (weeklyOff) boardState = "weekly_off";
     else boardState = "not_in";
     const late = !holiday && !weeklyOff && firstMinutes !== null && firstMinutes > parseHm(shift.startTime) + shift.graceMinutes;
-    if (boardState === "in") totals.in += 1;
-    if (boardState === "in" && state.workMode === "remote") totals.remote += 1;
+    // Someone on a break is still at work today.
+    if (boardState === "in" || boardState === "break") totals.in += 1;
+    if ((boardState === "in" || boardState === "break") && state.workMode === "remote") totals.remote += 1;
     if (late) totals.late += 1;
     if (boardState === "on_leave") totals.onLeave += 1;
     if (boardState === "not_in") totals.notIn += 1;
     if (boardState === "holiday" || boardState === "weekly_off") totals.off += 1;
     return {
       employeeId: p.id, name: p.name, code: p.code, department: p.department, state: boardState,
-      workMode: state.state === "in" ? state.workMode : (mine.at(-1)?.workMode ?? null),
+      workMode: state.workMode ?? mine.at(-1)?.workMode ?? null,
       firstIn: firstMinutes === null ? null : formatHm(firstMinutes), late, workedMinutes: state.todayWorkedMinutes,
     };
   });

@@ -38,6 +38,22 @@ describe("clock in and out", () => {
     expect(punches().map((p) => p.source)).toEqual(["web", "web", "web", "web"]);
   });
 
+  it("takes a break without ending the day, and resumes it", () => {
+    clockIn(db, asha.id, { workMode: "remote", ip: null, now: at("2026-11-02T04:00:00Z") });
+    clockOut(db, asha.id, { ip: null, now: at("2026-11-02T07:30:00Z"), startsBreak: true });
+    expect(clockState(db, asha.id, at("2026-11-02T08:00:00Z"))).toMatchObject({
+      state: "out", onBreak: true, since: null, workMode: "remote", todayWorkedMinutes: 210,
+      day: { state: "break", breakSeconds: 1800, breakStartedAt: "2026-11-02T07:30:00.000Z" },
+    });
+    clockIn(db, asha.id, { workMode: "remote", ip: null, now: at("2026-11-02T08:15:00Z") });
+    clockOut(db, asha.id, { ip: null, now: at("2026-11-02T13:15:00Z") });
+    // The break doesn't count as worked: 3h 30m + 5h.
+    expect(clockState(db, asha.id, at("2026-11-02T14:00:00Z"))).toMatchObject({
+      onBreak: false, workMode: null, todayWorkedMinutes: 510, day: { state: "done", breakSeconds: 2700 },
+    });
+    expect(db.select().from(attendanceDays).get()).toMatchObject({ status: "present", workedMinutes: 510 });
+  });
+
   it("refuses a second clock-in and a clock-out with nothing open", () => {
     expectDomainError(() => clockOut(db, asha.id, { ip: null, now: at("2026-11-02T04:00:00Z") }), "NOT_IN");
     clockIn(db, asha.id, { workMode: "office", ip: null, now: at("2026-11-02T04:00:00Z") });

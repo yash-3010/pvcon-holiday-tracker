@@ -3,7 +3,7 @@ import type { SessionUser } from "@/lib/auth/types";
 import type { DB } from "@/server/db/client";
 import { attendancePunches, type EmployeeRow } from "@/server/db/schema";
 import { recomputeAttendance } from "@/server/modules/attendance/compute";
-import { clockIn } from "@/server/modules/attendance/punches";
+import { clockIn, clockOut } from "@/server/modules/attendance/punches";
 import { employeeAttendanceSummary, musterRoll, myAttendanceMonth, pendingRegularizationsFor, todayBoard } from "@/server/modules/attendance/queries";
 import { requestRegularization } from "@/server/modules/attendance/regularization";
 import { seedDefaultShift } from "@/server/modules/attendance/shifts";
@@ -88,6 +88,11 @@ describe("team views", () => {
     const forHr = todayBoard(db, hr.user, NOW);
     expect(forHr.totals).toMatchObject({ in: 2, remote: 1, late: 1, onLeave: 1, notIn: 2 });
     expect(todayBoard(db, meera.user, NOW).rows).toEqual([]);
+
+    // On a break: still at work today, shown as such.
+    clockOut(db, kiran.employee.id, { ip: null, now: new Date(NOW.getTime() - 5 * 60_000), startsBreak: true });
+    expect(todayBoard(db, ravi.user, NOW).rows.find((r) => r.name === "Kiran Test")).toMatchObject({ state: "break", workMode: "remote" });
+    expect(todayBoard(db, hr.user, NOW).totals).toMatchObject({ in: 2, remote: 1 });
 
     recomputeAttendance(db, asha.employee.id, "2026-11-02", "2026-11-03", { now: NOW });
     const muster = musterRoll(db, ravi.user, "2026-11", {}, NOW);

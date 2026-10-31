@@ -39,6 +39,8 @@ export const attendancePunches = sqliteTable(
     direction: text("direction", { enum: PUNCH_DIRECTIONS }).notNull(),
     workMode: text("work_mode", { enum: WORK_MODES }).notNull().default("office"),
     source: text("source", { enum: PUNCH_SOURCES }).notNull().default("web"),
+    /** An `out` that starts a break: the day isn't over, and the next `in` resumes it. */
+    startsBreak: integer("starts_break", { mode: "boolean" }).notNull().default(false),
     ip: text("ip"),
     note: text("note"),
     createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
